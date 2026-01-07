@@ -29,11 +29,16 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 
 	offset, line, column := PositionToRuneOffset(text, params.Position)
 	if isSchemaURI(uri) {
+		target := definitionTargetAtPosition(text, line, column)
 		if loc := findTypeDefinitionLocation(schema, uri, text, line, column); loc != nil {
 			slog.Debug("definition: schema type resolved", "uri", uri, "line", line, "column", column)
 			return []protocol.Location{*loc}, nil
 		}
-		slog.Debug("definition: schema type not found", "uri", uri, "line", line, "column", column)
+		if target != "" {
+			slog.Debug("definition: schema type not found", "uri", uri, "line", line, "column", column, "target", target)
+		} else {
+			slog.Debug("definition: schema type not found", "uri", uri, "line", line, "column", column)
+		}
 		return nil, nil
 	}
 
@@ -58,6 +63,42 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	}
 	slog.Debug("definition: field resolved", "uri", uri, "line", line, "column", column)
 	return []protocol.Location{*loc}, nil
+}
+
+func definitionTargetAtPosition(text string, line, column int) string {
+	if line <= 0 || column <= 0 {
+		return ""
+	}
+	lineText, ok := lineTextAt(text, line)
+	if !ok {
+		return ""
+	}
+	runes := []rune(lineText)
+	if column-1 >= len(runes) {
+		return ""
+	}
+	start := column - 1
+	if start < 0 {
+		start = 0
+	}
+	for start > 0 && isIdentRune(runes[start-1]) {
+		start--
+	}
+	end := column - 1
+	for end < len(runes) && isIdentRune(runes[end]) {
+		end++
+	}
+	if start >= end {
+		return ""
+	}
+	return string(runes[start:end])
+}
+
+func isIdentRune(r rune) bool {
+	if r == '_' {
+		return true
+	}
+	return r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z'
 }
 
 func (s *Server) documentText(uri protocol.DocumentUri) (string, bool) {
