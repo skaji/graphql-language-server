@@ -2,7 +2,6 @@ package ls
 
 import (
 	"sync"
-	"time"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -16,7 +15,6 @@ type State struct {
 	schemaPaths       []string
 	rootPath          string
 	schema            *ast.Schema
-	schemaDebounce    *time.Timer
 }
 
 func newState() *State {
