@@ -27,7 +27,7 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	}
 
 	offset, line, column := PositionToRuneOffset(text, params.Position)
-	if isSchemaURI(uri) {
+	if s.isSchemaURI(uri) {
 		target := definitionTargetAtPosition(text, line, column)
 		if loc := findSchemaTypeReferenceLocation(schema, uri, text, line, column); loc != nil {
 			slog.Debug("definition: schema reference resolved", "uri", uri, "line", line, "column", column, "target", target)

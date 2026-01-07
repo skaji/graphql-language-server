@@ -37,7 +37,7 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 		return items, nil
 	}
 
-	if isSchemaURI(uri) {
+	if s.isSchemaURI(uri) {
 		if shouldCompleteSchemaTypes(text, offset) {
 			items := typeCompletionItems(schema)
 			slog.Debug("completion: schema type items", "uri", uri, "count", len(items))

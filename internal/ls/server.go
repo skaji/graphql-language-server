@@ -32,6 +32,7 @@ func New() *Server {
 		TextDocumentDidSave:    s.didSave,
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
+		TextDocumentReferences: s.references,
 		TextDocumentCompletion: s.completion,
 	}
 	return s

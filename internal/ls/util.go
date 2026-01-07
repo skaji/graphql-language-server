@@ -115,6 +115,16 @@ func isSchemaURI(uri protocol.DocumentUri) bool {
 	return isSchemaPath(path)
 }
 
+func (s *Server) isSchemaURI(uri protocol.DocumentUri) bool {
+	s.state.mu.Lock()
+	_, ok := s.state.schemaURIs[uri]
+	s.state.mu.Unlock()
+	if ok {
+		return true
+	}
+	return isSchemaURI(uri)
+}
+
 func lineStartIndex(text string, line int) int {
 	if line <= 1 {
 		return 0

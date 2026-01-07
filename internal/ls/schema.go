@@ -33,7 +33,7 @@ func newScanStats() *scanStats {
 }
 
 func (s *Server) publishQueryDiagnostics(ctx *glsp.Context, uri protocol.DocumentUri, text string) {
-	if isSchemaURI(uri) {
+	if s.isSchemaURI(uri) {
 		s.state.mu.Lock()
 		delete(s.state.queryDiagnostics, uri)
 		s.state.mu.Unlock()
@@ -90,6 +90,10 @@ func (s *Server) loadWorkspaceSchema(ctx *glsp.Context) {
 	s.state.mu.Lock()
 	s.state.schema = schema
 	s.state.schemaDiagnostics = diagnosticsByURI
+	s.state.schemaURIs = uris
+	for uri := range uris {
+		delete(s.state.queryDiagnostics, uri)
+	}
 	s.state.mu.Unlock()
 	slog.Debug("schema load complete", "sources", len(sources), "diagnostics", len(diagnosticsByURI))
 	if schema != nil {

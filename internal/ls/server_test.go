@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,6 +175,48 @@ func TestSchemaValidationErrorKeepsPreviousSchema(t *testing.T) {
 
 	if current != previous {
 		t.Fatal("expected schema to remain unchanged on validation error")
+	}
+}
+
+func TestSchemaFileSkipsQueryDiagnostics(t *testing.T) {
+	s := New()
+	root := t.TempDir()
+	schemaPath := filepath.Join(root, "facet.graphql")
+	schemaText := "type Foo { a: Int }\n"
+	if err := os.WriteFile(schemaPath, []byte(schemaText), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	s.state.mu.Lock()
+	s.state.rootPath = root
+	s.state.schemaPaths = nil
+	s.state.mu.Unlock()
+
+	ctx := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+	uri := pathToURI(schemaPath)
+	if err := s.didOpen(ctx, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        uri,
+			LanguageID: "graphql",
+			Version:    1,
+			Text:       schemaText,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen error: %v", err)
+	}
+
+	s.state.mu.Lock()
+	_, queryOk := s.state.queryDiagnostics[uri]
+	_, schemaOk := s.state.schemaURIs[uri]
+	s.state.mu.Unlock()
+
+	if queryOk {
+		t.Fatal("expected schema file to skip query diagnostics")
+	}
+	if !schemaOk {
+		t.Fatal("expected schema file to be tracked as schema")
 	}
 }
 
@@ -399,7 +442,7 @@ func TestHoverSchemaFieldTypeReference(t *testing.T) {
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position: protocol.Position{
 				Line:      1,
-				Character: 10,
+				Character: 8,
 			},
 		},
 	})
@@ -412,6 +455,145 @@ func TestHoverSchemaFieldTypeReference(t *testing.T) {
 	content, ok := hover.Contents.(protocol.MarkupContent)
 	if !ok || !strings.Contains(content.Value, "type Baz {") {
 		t.Fatalf("expected type hover content, got %#v", hover.Contents)
+	}
+}
+
+func TestHoverSchemaFieldTypeReferenceMultiline(t *testing.T) {
+	s := New()
+	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
+	text := "type Query {\n  foo(\n    id: ID!\n  ): Accommodation\n}\n type Accommodation { id: ID }\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Name:  string(uri),
+		Input: text,
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[uri] = text
+	s.state.mu.Unlock()
+
+	hover, err := s.hover(nil, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      3,
+				Character: 6,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("hover error: %v", err)
+	}
+	if hover == nil {
+		t.Fatal("expected hover result")
+	}
+	content, ok := hover.Contents.(protocol.MarkupContent)
+	if !ok || !strings.Contains(content.Value, "type Accommodation {") {
+		t.Fatalf("expected type hover content, got %#v", hover.Contents)
+	}
+}
+
+func TestHoverSchemaFieldArgType(t *testing.T) {
+	s := New()
+	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
+	text := "type Foo {\n  bar(id: String!): Baz\n}\n type Baz { id: ID }\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Name:  string(uri),
+		Input: text,
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[uri] = text
+	s.state.mu.Unlock()
+
+	hover, err := s.hover(nil, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      1,
+				Character: 10,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("hover error: %v", err)
+	}
+	if hover == nil {
+		t.Fatal("expected hover result")
+	}
+	content, ok := hover.Contents.(protocol.MarkupContent)
+	if !ok || (!strings.Contains(content.Value, "scalar String") && !strings.Contains(content.Value, "type String")) {
+		t.Fatalf("expected scalar String hover, got %#v", hover.Contents)
+	}
+}
+
+func TestReferencesSchemaType(t *testing.T) {
+	s := New()
+	root := t.TempDir()
+	file1 := filepath.Join(root, "schema.graphql")
+	file2 := filepath.Join(root, "more.graphql")
+	text1 := "type Query {\n  foo: Foo\n}\n\ntype Foo { id: ID }\n"
+	text2 := "type Bar {\n  foo: Foo\n}\n"
+	if err := os.WriteFile(file1, []byte(text1), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+	if err := os.WriteFile(file2, []byte(text2), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	s.state.mu.Lock()
+	s.state.rootPath = root
+	s.state.schemaPaths = nil
+	s.state.mu.Unlock()
+
+	ctx := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+	uri := pathToURI(file1)
+	if err := s.didOpen(ctx, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:        uri,
+			LanguageID: "graphql",
+			Version:    1,
+			Text:       text1,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen error: %v", err)
+	}
+
+	locations, err := s.references(nil, &protocol.ReferenceParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      1,
+				Character: 8,
+			},
+		},
+		Context: protocol.ReferenceContext{IncludeDeclaration: true},
+	})
+	if err != nil {
+		t.Fatalf("references error: %v", err)
+	}
+	if len(locations) < 2 {
+		t.Fatalf("expected reference locations, got %#v", locations)
+	}
+
+	want := map[string]bool{
+		string(uri) + ":1":              false,
+		string(uri) + ":4":              false,
+		string(pathToURI(file2)) + ":1": false,
+	}
+	for _, loc := range locations {
+		key := string(loc.URI) + ":" + fmt.Sprint(loc.Range.Start.Line)
+		if _, ok := want[key]; ok {
+			want[key] = true
+		}
+	}
+	for key, ok := range want {
+		if !ok {
+			t.Fatalf("missing reference location %s", key)
+		}
 	}
 }
 

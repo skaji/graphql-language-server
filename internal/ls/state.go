@@ -15,6 +15,7 @@ type State struct {
 	schemaPaths       []string
 	rootPath          string
 	schema            *ast.Schema
+	schemaURIs        map[protocol.DocumentUri]struct{}
 }
 
 func newState() *State {
@@ -22,5 +23,6 @@ func newState() *State {
 		docs:              make(map[protocol.DocumentUri]string),
 		queryDiagnostics:  make(map[protocol.DocumentUri][]protocol.Diagnostic),
 		schemaDiagnostics: make(map[protocol.DocumentUri][]protocol.Diagnostic),
+		schemaURIs:        make(map[protocol.DocumentUri]struct{}),
 	}
 }

@@ -33,6 +33,9 @@
 - Hover: schema types and field definitions in SDL.
 - Hover: schema field type references show the target type.
 - Hover: schema type references render full type definitions.
+- Hover: schema argument type references resolve to the correct scalar.
+- References: schema type references across schema sources.
+- Schema file detection uses loaded schema sources, not just file naming.
 - Go-to-definition: fields in queries and type names in schema files.
 - Go-to-definition: schema type references within SDL.
 - Completion: fields, types, and directives with basic context and snippets.
