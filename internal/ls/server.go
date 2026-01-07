@@ -29,6 +29,7 @@ func New() *Server {
 		TextDocumentDidClose:   s.didClose,
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
+		TextDocumentCompletion: s.completion,
 	}
 	return s
 }
@@ -44,6 +45,9 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 	capabilities.TextDocumentSync = &protocol.TextDocumentSyncOptions{
 		OpenClose: &protocol.True,
 		Change:    &syncKind,
+	}
+	capabilities.CompletionProvider = &protocol.CompletionOptions{
+		TriggerCharacters: []string{"@"},
 	}
 
 	rootPath := ""

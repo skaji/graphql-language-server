@@ -1,0 +1,351 @@
+package ls
+
+import (
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/tliron/glsp"
+	protocol "github.com/tliron/glsp/protocol_3_16"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
+)
+
+func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) (any, error) {
+	uri := params.TextDocument.URI
+
+	s.state.mu.Lock()
+	schema := s.state.schema
+	s.state.mu.Unlock()
+	if schema == nil {
+		return nil, nil
+	}
+
+	text, ok := s.documentText(uri)
+	if !ok {
+		return nil, nil
+	}
+
+	offset, _, _ := PositionToRuneOffset(text, params.Position)
+	if isSchemaURI(uri) {
+		return schemaCompletionItems(schema), nil
+	}
+
+	if shouldCompleteDirectives(text, offset) {
+		return directiveCompletionItems(schema), nil
+	}
+
+	doc, err := parser.ParseQuery(&ast.Source{
+		Name:  string(uri),
+		Input: text,
+	})
+	if err != nil {
+		return nil, nil
+	}
+
+	parent := findCompletionParentType(doc, schema, text, offset)
+	if parent == nil {
+		parent = schema.Query
+	}
+	return fieldCompletionItems(parent), nil
+}
+
+func shouldCompleteDirectives(text string, offset int) bool {
+	if offset <= 0 {
+		return false
+	}
+	index := runeOffsetToByteIndex(text, offset)
+	for index > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:index])
+		if r == utf8.RuneError && size == 0 {
+			return false
+		}
+		if r == '@' {
+			return true
+		}
+		if !unicode.IsSpace(r) {
+			return false
+		}
+		index -= size
+	}
+	return false
+}
+
+func schemaCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
+	items := make([]protocol.CompletionItem, 0, len(schema.Types)+len(schema.Directives))
+	for name := range schema.Types {
+		kind := protocol.CompletionItemKindStruct
+		items = append(items, protocol.CompletionItem{
+			Label: name,
+			Kind:  &kind,
+		})
+	}
+	for name := range schema.Directives {
+		kind := protocol.CompletionItemKindFunction
+		items = append(items, protocol.CompletionItem{
+			Label: name,
+			Kind:  &kind,
+		})
+	}
+	return items
+}
+
+func directiveCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
+	items := make([]protocol.CompletionItem, 0, len(schema.Directives))
+	for name := range schema.Directives {
+		kind := protocol.CompletionItemKindFunction
+		items = append(items, protocol.CompletionItem{
+			Label: name,
+			Kind:  &kind,
+		})
+	}
+	return items
+}
+
+func fieldCompletionItems(parent *ast.Definition) []protocol.CompletionItem {
+	if parent == nil {
+		return nil
+	}
+	items := make([]protocol.CompletionItem, 0, len(parent.Fields))
+	for _, field := range parent.Fields {
+		kind := protocol.CompletionItemKindField
+		detail := field.Type.String()
+		items = append(items, protocol.CompletionItem{
+			Label:  field.Name,
+			Kind:   &kind,
+			Detail: &detail,
+		})
+	}
+	return items
+}
+
+func findCompletionParentType(doc *ast.QueryDocument, schema *ast.Schema, text string, offset int) *ast.Definition {
+	if doc == nil || schema == nil {
+		return nil
+	}
+
+	fragments := make(map[string]*ast.FragmentDefinition, len(doc.Fragments))
+	for _, fragment := range doc.Fragments {
+		fragments[fragment.Name] = fragment
+	}
+
+	for _, op := range doc.Operations {
+		root := rootTypeForOperation(schema, op.Operation)
+		if root == nil {
+			continue
+		}
+		if !selectionSetContainsOffset(text, op.Position, offset) {
+			continue
+		}
+		return findParentTypeInSelectionSet(op.SelectionSet, schema, root, fragments, text, offset)
+	}
+
+	return nil
+}
+
+func findParentTypeInSelectionSet(set ast.SelectionSet, schema *ast.Schema, parent *ast.Definition, fragments map[string]*ast.FragmentDefinition, text string, offset int) *ast.Definition {
+	if parent == nil {
+		return nil
+	}
+
+	for _, selection := range set {
+		switch sel := selection.(type) {
+		case *ast.Field:
+			def := findFieldDefinition(parent, sel.Name)
+			if def == nil || len(sel.SelectionSet) == 0 {
+				continue
+			}
+			if !selectionSetContainsOffset(text, sel.Position, offset) {
+				continue
+			}
+			nextParent := schema.Types[def.Type.Name()]
+			if nextParent == nil {
+				return parent
+			}
+			nested := findParentTypeInSelectionSet(sel.SelectionSet, schema, nextParent, fragments, text, offset)
+			if nested != nil {
+				return nested
+			}
+			return nextParent
+		case *ast.InlineFragment:
+			if !selectionSetContainsOffset(text, sel.Position, offset) {
+				continue
+			}
+			nextParent := parent
+			if sel.TypeCondition != "" {
+				if def := schema.Types[sel.TypeCondition]; def != nil {
+					nextParent = def
+				}
+			}
+			nested := findParentTypeInSelectionSet(sel.SelectionSet, schema, nextParent, fragments, text, offset)
+			if nested != nil {
+				return nested
+			}
+			return nextParent
+		case *ast.FragmentSpread:
+			fragment := fragments[sel.Name]
+			if fragment == nil || !selectionSetContainsOffset(text, fragment.Position, offset) {
+				continue
+			}
+			nextParent := parent
+			if fragment.TypeCondition != "" {
+				if def := schema.Types[fragment.TypeCondition]; def != nil {
+					nextParent = def
+				}
+			}
+			nested := findParentTypeInSelectionSet(fragment.SelectionSet, schema, nextParent, fragments, text, offset)
+			if nested != nil {
+				return nested
+			}
+			return nextParent
+		}
+	}
+
+	return parent
+}
+
+func selectionSetContainsOffset(text string, pos *ast.Position, offset int) bool {
+	if pos == nil {
+		return false
+	}
+	runes := []rune(text)
+	start := pos.Start
+	if start < 0 {
+		start = 0
+	}
+	open, closeIndex, ok := selectionSetRange(runes, start)
+	if !ok {
+		return false
+	}
+	return offset >= open && offset <= closeIndex
+}
+
+func selectionSetRange(runes []rune, start int) (int, int, bool) {
+	open, ok := scanToOpenBrace(runes, start)
+	if !ok {
+		return 0, 0, false
+	}
+	closeIndex, ok := findMatchingBrace(runes, open)
+	if !ok {
+		return 0, 0, false
+	}
+	return open, closeIndex, true
+}
+
+func scanToOpenBrace(runes []rune, start int) (int, bool) {
+	inString := false
+	inBlockString := false
+	inComment := false
+	for i := start; i < len(runes); i++ {
+		r := runes[i]
+		if inComment {
+			if r == '\n' {
+				inComment = false
+			}
+			continue
+		}
+		if inString {
+			if r == '\\' {
+				i++
+				continue
+			}
+			if r == '"' {
+				inString = false
+			}
+			continue
+		}
+		if inBlockString {
+			if r == '"' && i+2 < len(runes) && runes[i+1] == '"' && runes[i+2] == '"' {
+				inBlockString = false
+				i += 2
+			}
+			continue
+		}
+		if r == '#' {
+			inComment = true
+			continue
+		}
+		if r == '"' {
+			if i+2 < len(runes) && runes[i+1] == '"' && runes[i+2] == '"' {
+				inBlockString = true
+				i += 2
+			} else {
+				inString = true
+			}
+			continue
+		}
+		if r == '{' {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func findMatchingBrace(runes []rune, open int) (int, bool) {
+	depth := 0
+	inString := false
+	inBlockString := false
+	inComment := false
+	for i := open; i < len(runes); i++ {
+		r := runes[i]
+		if inComment {
+			if r == '\n' {
+				inComment = false
+			}
+			continue
+		}
+		if inString {
+			if r == '\\' {
+				i++
+				continue
+			}
+			if r == '"' {
+				inString = false
+			}
+			continue
+		}
+		if inBlockString {
+			if r == '"' && i+2 < len(runes) && runes[i+1] == '"' && runes[i+2] == '"' {
+				inBlockString = false
+				i += 2
+			}
+			continue
+		}
+		if r == '#' {
+			inComment = true
+			continue
+		}
+		if r == '"' {
+			if i+2 < len(runes) && runes[i+1] == '"' && runes[i+2] == '"' {
+				inBlockString = true
+				i += 2
+			} else {
+				inString = true
+			}
+			continue
+		}
+		switch r {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func runeOffsetToByteIndex(text string, offset int) int {
+	if offset <= 0 {
+		return 0
+	}
+	count := 0
+	for i := range text {
+		if count == offset {
+			return i
+		}
+		count++
+	}
+	return len(text)
+}

@@ -2,6 +2,7 @@ package ls
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tliron/glsp"
@@ -209,6 +210,74 @@ func TestDefinitionHandlerType(t *testing.T) {
 	}
 }
 
+func TestCompletionFields(t *testing.T) {
+	s := New()
+	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
+	query := "{ user { name } }"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type Query { user: User }\n type User { name: String }\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[queryURI] = query
+	s.state.mu.Unlock()
+
+	result, err := s.completion(nil, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: queryURI},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 2,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("completion error: %v", err)
+	}
+	items, ok := result.([]protocol.CompletionItem)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected completion items, got %T", result)
+	}
+	if !hasCompletionLabel(items, "user") {
+		t.Fatalf("expected user completion, got %v", completionLabels(items))
+	}
+}
+
+func TestCompletionDirectives(t *testing.T) {
+	s := New()
+	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
+	query := "{ user @ }"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type Query { user: String }\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[queryURI] = query
+	s.state.mu.Unlock()
+
+	result, err := s.completion(nil, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: queryURI},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 8,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("completion error: %v", err)
+	}
+	items, ok := result.([]protocol.CompletionItem)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected completion items, got %T", result)
+	}
+	if !hasCompletionLabel(items, "include") {
+		t.Fatalf("expected include directive, got %v", completionLabels(items))
+	}
+}
+
 func TestShutdownAndSetTrace(t *testing.T) {
 	s := New()
 	if err := s.setTrace(nil, &protocol.SetTraceParams{Value: protocol.TraceValueVerbose}); err != nil {
@@ -217,4 +286,21 @@ func TestShutdownAndSetTrace(t *testing.T) {
 	if err := s.shutdown(nil); err != nil {
 		t.Fatalf("shutdown error: %v", err)
 	}
+}
+
+func hasCompletionLabel(items []protocol.CompletionItem, label string) bool {
+	for _, item := range items {
+		if item.Label == label {
+			return true
+		}
+	}
+	return false
+}
+
+func completionLabels(items []protocol.CompletionItem) string {
+	labels := make([]string, 0, len(items))
+	for _, item := range items {
+		labels = append(labels, item.Label)
+	}
+	return strings.Join(labels, ", ")
 }
