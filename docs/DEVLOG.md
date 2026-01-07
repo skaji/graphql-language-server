@@ -35,6 +35,7 @@
 - Completion: schema field type positions suggest types.
 - Completion avoids type suggestions while typing schema field names.
 - Completion is triggered on ':' to suggest schema field types sooner.
+- Completion is also triggered on space to keep type suggestions after `foo: `.
 
 ## Configuration
 - `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.

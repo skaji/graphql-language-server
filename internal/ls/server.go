@@ -53,7 +53,7 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 	}
 	capabilities.TextDocumentSync.(*protocol.TextDocumentSyncOptions).Save = &protocol.True
 	capabilities.CompletionProvider = &protocol.CompletionOptions{
-		TriggerCharacters: []string{"@", ":"},
+		TriggerCharacters: []string{"@", ":", " "},
 	}
 
 	rootPath := ""
