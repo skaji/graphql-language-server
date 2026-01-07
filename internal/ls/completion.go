@@ -262,9 +262,7 @@ func selectionSetContainsOffset(text string, pos *ast.Position, offset int) bool
 	}
 	runes := []rune(text)
 	start := pos.Start
-	if start < 0 {
-		start = 0
-	}
+	start = max(0, start)
 	open, closeIndex, ok := selectionSetRange(runes, start)
 	if !ok {
 		return false
@@ -435,12 +433,8 @@ func linePrefixAtOffset(text string, offset int) (string, bool) {
 	}
 	start := lineStartIndex(text, line)
 	byteOffset := runeOffsetToByteIndex(text, offset)
-	if byteOffset < start {
-		byteOffset = start
-	}
-	if byteOffset > len(text) {
-		byteOffset = len(text)
-	}
+	byteOffset = max(start, byteOffset)
+	byteOffset = min(len(text), byteOffset)
 	return text[start:byteOffset], true
 }
 

@@ -178,20 +178,14 @@ func fieldMatchesPosition(pos *ast.Position, offset, line, column int, name stri
 
 func PositionToRuneOffset(text string, pos protocol.Position) (int, int, int) {
 	byteOffset := pos.IndexIn(text)
-	if byteOffset < 0 {
-		byteOffset = 0
-	}
+	byteOffset = max(0, byteOffset)
 
 	line := int(pos.Line) + 1
 	lineStart := lineStartIndex(text, line)
-	if byteOffset < lineStart {
-		byteOffset = lineStart
-	}
+	byteOffset = max(lineStart, byteOffset)
 
 	offset := utf8.RuneCountInString(text[:byteOffset])
 	column := utf8.RuneCountInString(text[lineStart:byteOffset]) + 1
-	if column < 1 {
-		column = 1
-	}
+	column = max(1, column)
 	return offset, line, column
 }

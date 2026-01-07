@@ -82,9 +82,7 @@ func definitionTargetAtPosition(text string, line, column int) string {
 		return ""
 	}
 	start := column - 1
-	if start < 0 {
-		start = 0
-	}
+	start = max(0, start)
 	for start > 0 && isIdentRune(runes[start-1]) {
 		start--
 	}
