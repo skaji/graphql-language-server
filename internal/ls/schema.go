@@ -57,6 +57,10 @@ func (s *Server) publishQueryDiagnostics(context *glsp.Context, uri protocol.Doc
 
 func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 	slog.Debug("loading workspace schema")
+	s.state.mu.Lock()
+	previousSchema := s.state.schema
+	s.state.mu.Unlock()
+
 	sources, uris := s.collectSchemaSources()
 	diagnosticsByURI := make(map[protocol.DocumentUri][]protocol.Diagnostic)
 	var schema *ast.Schema
@@ -75,6 +79,10 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 		schema = loadedSchema
 		if err != nil {
 			diagnosticsByURI = GqlErrorDiagnosticsByFile(err, uris)
+			if previousSchema != nil {
+				slog.Debug("schema validation error; keeping previous schema", "error", err)
+				schema = previousSchema
+			}
 		}
 	}
 

@@ -17,6 +17,7 @@
 - Schema diagnostics are logged with a short message list when present.
 - Schema validation also runs on `didSave`.
 - Schema validation is skipped when schema parsing has syntax errors.
+- Schema validation errors keep the last known good schema loaded.
 - Schema diagnostics are cleared for all schema files once fixed.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.

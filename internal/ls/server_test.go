@@ -145,6 +145,38 @@ func TestSchemaDiagnosticsClearedAfterFix(t *testing.T) {
 	}
 }
 
+func TestSchemaValidationErrorKeepsPreviousSchema(t *testing.T) {
+	s := New()
+	root := t.TempDir()
+	schemaPath := filepath.Join(root, "schema.graphql")
+	if err := os.WriteFile(schemaPath, []byte("type Query { foo: F }\n"), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	previous := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type Query { ok: String }\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.rootPath = root
+	s.state.schemaPaths = nil
+	s.state.schema = previous
+	s.state.mu.Unlock()
+
+	context := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+	s.loadWorkspaceSchema(context)
+
+	s.state.mu.Lock()
+	current := s.state.schema
+	s.state.mu.Unlock()
+
+	if current != previous {
+		t.Fatal("expected schema to remain unchanged on validation error")
+	}
+}
+
 func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/query.graphql")
