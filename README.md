@@ -1,6 +1,6 @@
 # graphql-language-server
 
-GraphQL language server for Go projects, built on `github.com/tliron/glsp` and `github.com/vektah/gqlparser/v2`.
+GraphQL language server implemented in Go, built on `github.com/tliron/glsp` and `github.com/vektah/gqlparser/v2`.
 
 Developed with Codex.
 
