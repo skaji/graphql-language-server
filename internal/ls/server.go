@@ -21,13 +21,14 @@ func New() *Server {
 		state: newState(),
 	}
 	s.handler = protocol.Handler{
-		Initialize:            s.initialize,
-		Shutdown:              s.shutdown,
-		SetTrace:              s.setTrace,
-		TextDocumentDidOpen:   s.didOpen,
-		TextDocumentDidChange: s.didChange,
-		TextDocumentDidClose:  s.didClose,
-		TextDocumentHover:     s.hover,
+		Initialize:             s.initialize,
+		Shutdown:               s.shutdown,
+		SetTrace:               s.setTrace,
+		TextDocumentDidOpen:    s.didOpen,
+		TextDocumentDidChange:  s.didChange,
+		TextDocumentDidClose:   s.didClose,
+		TextDocumentHover:      s.hover,
+		TextDocumentDefinition: s.definition,
 	}
 	return s
 }

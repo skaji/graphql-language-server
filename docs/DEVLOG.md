@@ -16,6 +16,7 @@
 - Text sync: `didOpen`, `didChange`, `didClose`.
 - Diagnostics: syntax and schema validation errors.
 - Hover: minimal field hover with type info and description.
+- Go-to-definition: fields in queries and type names in schema files.
 
 ## Configuration
 - `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.
@@ -42,11 +43,11 @@ Example:
 - Minimal LSP server with diagnostics.
 - Workspace schema loading and validation diagnostics.
 - Hover support for fields.
+- Go-to-definition for fields and types.
 - Schema path configuration via initialization options.
 - Refactor into `internal/ls` package with basic tests.
 
 ## Next Steps
-- Go-to-definition for types and fields.
 - Completion for fields, types, and directives.
 - Improve schema/query separation and caching.
 - Add config file support (e.g. `graphql-language-server.json`).
