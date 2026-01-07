@@ -46,6 +46,8 @@
 - Completion: fields, types, and directives with basic context and snippets.
 - Completion: schema field type positions suggest types.
 - Completion avoids type suggestions while typing schema field names.
+- Completion suggests schema definition keywords at top-level.
+- Completion suggests object types after `union Foo =`.
 - Completion is triggered on ':' to suggest schema field types sooner.
 - Completion is also triggered on space to keep type suggestions after `foo: `.
 

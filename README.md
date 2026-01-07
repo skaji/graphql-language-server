@@ -11,6 +11,7 @@ Developed with Codex.
 - Go-to-definition: fields, types, and schema type references
 - References: schema type references
 - Completion: fields, types, directives, and schema type positions
+- Completion: schema keywords and union member types
 - Schema discovery with configurable paths (defaults to all `.graphql`/`.graphqls`)
 
 ## Install
