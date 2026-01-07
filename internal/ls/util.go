@@ -5,8 +5,10 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 type initOptions struct {
@@ -126,4 +128,54 @@ func lineStartIndex(text string, line int) int {
 		start += next + 1
 	}
 	return start
+}
+
+func lineTextAt(text string, line int) (string, bool) {
+	if line <= 0 {
+		return "", false
+	}
+	start := lineStartIndex(text, line)
+	if start >= len(text) {
+		return "", false
+	}
+	end := strings.Index(text[start:], "\n")
+	if end == -1 {
+		return text[start:], true
+	}
+	return text[start : start+end], true
+}
+
+func nameColumnInLine(text string, line int, name string, fallback int) int {
+	lineText, ok := lineTextAt(text, line)
+	if !ok {
+		return fallback
+	}
+	index := strings.Index(lineText, name)
+	if index == -1 {
+		return fallback
+	}
+	return utf8.RuneCountInString(lineText[:index]) + 1
+}
+
+func fieldSignature(field *ast.FieldDefinition) string {
+	if field == nil || field.Type == nil {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(field.Name)
+	if len(field.Arguments) > 0 {
+		b.WriteByte('(')
+		for i, arg := range field.Arguments {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(arg.Name)
+			b.WriteString(": ")
+			b.WriteString(arg.Type.String())
+		}
+		b.WriteByte(')')
+	}
+	b.WriteString(": ")
+	b.WriteString(field.Type.String())
+	return b.String()
 }

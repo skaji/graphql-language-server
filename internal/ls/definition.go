@@ -2,7 +2,6 @@ package ls
 
 import (
 	"log/slog"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/tliron/glsp"
@@ -244,33 +243,6 @@ func findTypeDefinitionLocation(schema *ast.Schema, uri protocol.DocumentUri, te
 	}
 
 	return nil
-}
-
-func nameColumnInLine(text string, line int, name string, fallback int) int {
-	lineText, ok := lineTextAt(text, line)
-	if !ok {
-		return fallback
-	}
-	index := strings.Index(lineText, name)
-	if index == -1 {
-		return fallback
-	}
-	return utf8.RuneCountInString(lineText[:index]) + 1
-}
-
-func lineTextAt(text string, line int) (string, bool) {
-	if line <= 0 {
-		return "", false
-	}
-	start := lineStartIndex(text, line)
-	if start >= len(text) {
-		return "", false
-	}
-	end := strings.Index(text[start:], "\n")
-	if end == -1 {
-		return text[start:], true
-	}
-	return text[start : start+end], true
 }
 
 func locationFromDefinition(name string, pos *ast.Position) *protocol.Location {

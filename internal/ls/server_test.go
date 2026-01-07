@@ -341,6 +341,68 @@ func TestHoverHandler(t *testing.T) {
 	}
 }
 
+func TestHoverSchemaField(t *testing.T) {
+	s := New()
+	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
+	text := "type Foo {\n  bar: String\n}\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Name:  string(uri),
+		Input: text,
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[uri] = text
+	s.state.mu.Unlock()
+
+	hover, err := s.hover(nil, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      1,
+				Character: 3,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("hover error: %v", err)
+	}
+	if hover == nil {
+		t.Fatal("expected hover result")
+	}
+}
+
+func TestHoverSchemaType(t *testing.T) {
+	s := New()
+	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
+	text := "type Foo {\n  a: Int\n}\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Name:  string(uri),
+		Input: text,
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[uri] = text
+	s.state.mu.Unlock()
+
+	hover, err := s.hover(nil, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 6,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("hover error: %v", err)
+	}
+	if hover == nil {
+		t.Fatal("expected hover result")
+	}
+}
+
 func TestDefinitionHandlerField(t *testing.T) {
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")

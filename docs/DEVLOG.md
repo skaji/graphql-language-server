@@ -30,6 +30,7 @@
 - Text sync: `didOpen`, `didChange`, `didClose`.
 - Diagnostics: syntax and schema validation errors.
 - Hover: minimal field hover with type info and description.
+- Hover: schema types and field definitions in SDL.
 - Go-to-definition: fields in queries and type names in schema files.
 - Go-to-definition: schema type references within SDL.
 - Completion: fields, types, and directives with basic context and snippets.

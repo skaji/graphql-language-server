@@ -510,26 +510,3 @@ func completionDocumentation(field *ast.FieldDefinition) string {
 	}
 	return "```graphql\n" + signature + "\n```\n\n" + field.Description
 }
-
-func fieldSignature(field *ast.FieldDefinition) string {
-	if field == nil || field.Type == nil {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString(field.Name)
-	if len(field.Arguments) > 0 {
-		b.WriteByte('(')
-		for i, arg := range field.Arguments {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(arg.Name)
-			b.WriteString(": ")
-			b.WriteString(arg.Type.String())
-		}
-		b.WriteByte(')')
-	}
-	b.WriteString(": ")
-	b.WriteString(field.Type.String())
-	return b.String()
-}
