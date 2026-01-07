@@ -113,7 +113,7 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 		slog.Debug("didChange: unsupported change payload", "uri", params.TextDocument.URI)
 		return nil
 	}
-	slog.Debug("didChange", "uri", params.TextDocument.URI, "version", params.TextDocument.Version, "length", len(text))
+	logChangeSummary(params.TextDocument.URI, params.TextDocument.Version, params.ContentChanges, len(text))
 
 	s.state.mu.Lock()
 	s.state.docs[params.TextDocument.URI] = text

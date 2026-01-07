@@ -76,6 +76,9 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 	if schema != nil {
 		slog.Debug("schema types", "types", schemaTypeNames(schema))
 	}
+	if len(diagnosticsByURI) > 0 {
+		slogSchemaDiagnostics(diagnosticsByURI)
+	}
 
 	s.publishAllDiagnostics(context)
 }
@@ -268,6 +271,31 @@ func schemaTypeNames(schema *ast.Schema) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func slogSchemaDiagnostics(diags map[protocol.DocumentUri][]protocol.Diagnostic) {
+	const maxPerFile = 10
+	for uri, list := range diags {
+		if len(list) == 0 {
+			continue
+		}
+		msgs := make([]string, 0, minInt(len(list), maxPerFile))
+		for i, diag := range list {
+			if i >= maxPerFile {
+				msgs = append(msgs, "...")
+				break
+			}
+			msgs = append(msgs, diag.Message)
+		}
+		slog.Debug("schema diagnostics", "uri", uri, "count", len(list), "messages", msgs)
+	}
 }
 
 func (s *Server) publishAllDiagnostics(context *glsp.Context) {
