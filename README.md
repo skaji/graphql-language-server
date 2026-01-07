@@ -9,7 +9,7 @@ Developed with Codex.
 - Diagnostics: syntax and schema validation errors
 - Hover: field type info
 - Go-to-definition: fields, types, and schema type references
-- Rename: schema types
+- Rename: schema types and enum values
 - References: schema type references
 - Completion: fields, types, directives, and schema type positions
 - Completion: schema keywords and union member types

@@ -43,7 +43,7 @@
 - CLI: `--version` and `--help` flags.
 - Go-to-definition: fields in queries and type names in schema files.
 - Go-to-definition: schema type references within SDL.
-- Rename: schema type names.
+- Rename: schema type names and enum values.
 - Completion: fields, types, and directives with basic context and snippets.
 - Completion: schema field type positions suggest types.
 - Completion avoids type suggestions while typing schema field names.
