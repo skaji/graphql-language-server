@@ -318,15 +318,6 @@ func schemaHoverForType(doc *ast.SchemaDocument, typeName string) *HoverInfo {
 	}
 }
 
-func isBuiltInScalar(name string) bool {
-	switch name {
-	case "String", "Int", "Float", "Boolean", "ID":
-		return true
-	default:
-		return false
-	}
-}
-
 func matchesTypeName(text string, line, column int, name string, fallback int) bool {
 	nameCol := nameColumnInLine(text, line, name, fallback)
 	if nameCol <= 0 {
