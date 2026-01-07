@@ -29,6 +29,7 @@ func New() *Server {
 		TextDocumentDidOpen:    s.didOpen,
 		TextDocumentDidChange:  s.didChange,
 		TextDocumentDidClose:   s.didClose,
+		TextDocumentDidSave:    s.didSave,
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
 		TextDocumentCompletion: s.completion,
@@ -50,6 +51,7 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 		OpenClose: &protocol.True,
 		Change:    &syncKind,
 	}
+	capabilities.TextDocumentSync.(*protocol.TextDocumentSyncOptions).Save = &protocol.True
 	capabilities.CompletionProvider = &protocol.CompletionOptions{
 		TriggerCharacters: []string{"@"},
 	}
@@ -133,5 +135,11 @@ func (s *Server) didClose(context *glsp.Context, params *protocol.DidCloseTextDo
 
 	s.loadWorkspaceSchema(context)
 	s.publishCombinedDiagnostics(context, params.TextDocument.URI)
+	return nil
+}
+
+func (s *Server) didSave(context *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
+	slog.Debug("didSave", "uri", params.TextDocument.URI)
+	s.loadWorkspaceSchema(context)
 	return nil
 }

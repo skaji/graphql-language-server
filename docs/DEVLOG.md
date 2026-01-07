@@ -15,6 +15,7 @@
 - Definition logs include the missing type name when possible.
 - Incremental text changes are applied using LSP ranges.
 - Schema diagnostics are logged with a short message list when present.
+- Schema validation also runs on `didSave`.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.
   - Default discovery scans all `*.graphql` and `*.graphqls` under the workspace.

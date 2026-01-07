@@ -133,6 +133,40 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 	}
 }
 
+func TestDidSaveTriggersSchemaLoad(t *testing.T) {
+	s := New()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "schema.graphql")
+	uri := pathToURI(path)
+	schema := "type Query { name: String }\n"
+
+	if err := os.WriteFile(path, []byte(schema), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	s.state.mu.Lock()
+	s.state.docs[uri] = schema
+	s.state.rootPath = dir
+	s.state.schemaPaths = []string{"schema.graphql"}
+	s.state.mu.Unlock()
+
+	context := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+	if err := s.didSave(context, &protocol.DidSaveTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}); err != nil {
+		t.Fatalf("didSave error: %v", err)
+	}
+
+	s.state.mu.Lock()
+	loaded := s.state.schema != nil
+	s.state.mu.Unlock()
+	if !loaded {
+		t.Fatal("expected schema to be loaded on save")
+	}
+}
+
 func TestDidChangeIncrementalUpdatesText(t *testing.T) {
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
