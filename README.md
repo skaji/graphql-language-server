@@ -13,7 +13,8 @@ Developed with Codex.
 
 ## Install
 ```bash
-go install github.com/skaji/graphql-language-server/cmd/graphql-language-server@latest
+# Download the appropriate binary from:
+# https://github.com/skaji/graphql-language-server/releases/latest
 ```
 
 ## Usage
