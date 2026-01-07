@@ -24,13 +24,27 @@ func (s *Server) hover(_ *glsp.Context, params *protocol.HoverParams) (*protocol
 	text, ok := s.state.docs[uri]
 	schema := s.state.schema
 	s.state.mu.Unlock()
+	if ok {
+		_, line, column := PositionToRuneOffset(text, params.Position)
+		slog.Debug("hover request", "uri", uri, "line", line, "column", column)
+	} else {
+		slog.Debug("hover request", "uri", uri, "line", int(params.Position.Line)+1, "column", int(params.Position.Character)+1)
+	}
 	if !ok || schema == nil {
 		return nil, nil
 	}
 
 	if isSchemaURI(uri) {
 		_, line, column := PositionToRuneOffset(text, params.Position)
-		info := findSchemaHover(schema, uri, text, line, column)
+		doc, err := parser.ParseSchema(&ast.Source{
+			Name:  string(uri),
+			Input: text,
+		})
+		if err != nil {
+			slog.Debug("hover: schema parse error", "uri", uri, "error", err)
+			return nil, nil
+		}
+		info := findSchemaHover(doc, text, line, column)
 		if info == nil {
 			slog.Debug("hover: no schema info", "uri", uri, "line", line, "column", column)
 			return nil, nil
@@ -79,24 +93,25 @@ func FindFieldHover(doc *ast.QueryDocument, schema *ast.Schema, offset, line, co
 	return nil
 }
 
-func findSchemaHover(schema *ast.Schema, uri protocol.DocumentUri, text string, line, column int) *HoverInfo {
-	if schema == nil {
+func findSchemaHover(doc *ast.SchemaDocument, text string, line, column int) *HoverInfo {
+	if doc == nil {
 		return nil
 	}
-	for _, def := range schema.Types {
-		if def == nil || def.Position == nil || def.Position.Src == nil {
+	defs := append(ast.DefinitionList{}, doc.Definitions...)
+	defs = append(defs, doc.Extensions...)
+	for _, def := range defs {
+		if def == nil || def.Position == nil {
 			continue
 		}
-		if protocol.DocumentUri(def.Position.Src.Name) != uri {
-			continue
-		}
-		if typeSignature := schemaTypeSignature(def); typeSignature != "" {
-			if matchesTypeName(text, line, column, def.Name, def.Position.Column) {
-				return &HoverInfo{
-					Name:        def.Name,
-					TypeString:  string(def.Kind),
-					Signature:   typeSignature,
-					Description: def.Description,
+		if def.Position.Line == line {
+			if typeSignature := schemaTypeSignature(def); typeSignature != "" {
+				if matchesTypeName(text, line, column, def.Name, def.Position.Column) {
+					return &HoverInfo{
+						Name:        def.Name,
+						TypeString:  string(def.Kind),
+						Signature:   typeSignature,
+						Description: def.Description,
+					}
 				}
 			}
 		}
@@ -107,12 +122,27 @@ func findSchemaHover(schema *ast.Schema, uri protocol.DocumentUri, text string, 
 			if field.Position.Line != line {
 				continue
 			}
-			if nameMatchesColumn(field.Position.Column, column, field.Name) {
+			if matchesTypeName(text, line, column, field.Name, field.Position.Column) {
 				return &HoverInfo{
 					Name:        field.Name,
 					TypeString:  field.Type.String(),
 					Signature:   fieldSignature(field),
 					Description: field.Description,
+				}
+			}
+			if typeName := typeNameAtPosition(text, line, column, field.Position.Column, field.Name, field.Type); typeName != "" {
+				if typeDef := schemaTypeForName(doc, typeName); typeDef != nil {
+					return &HoverInfo{
+						Name:        typeDef.Name,
+						TypeString:  string(typeDef.Kind),
+						Signature:   schemaTypeSignature(typeDef),
+						Description: typeDef.Description,
+					}
+				}
+				return &HoverInfo{
+					Name:       typeName,
+					Signature:  "type " + typeName,
+					TypeString: "type",
 				}
 			}
 		}
@@ -124,11 +154,96 @@ func schemaTypeSignature(def *ast.Definition) string {
 	if def == nil {
 		return ""
 	}
-	kind := strings.ToLower(string(def.Kind))
-	if kind == "" {
+	keyword := schemaTypeKeyword(def.Kind)
+	if keyword == "" {
 		return def.Name
 	}
-	return kind + " " + def.Name
+	return keyword + " " + def.Name
+}
+
+func schemaTypeKeyword(kind ast.DefinitionKind) string {
+	switch kind {
+	case ast.Object:
+		return "type"
+	case ast.InputObject:
+		return "input"
+	case ast.Interface:
+		return "interface"
+	case ast.Enum:
+		return "enum"
+	case ast.Union:
+		return "union"
+	case ast.Scalar:
+		return "scalar"
+	default:
+		return ""
+	}
+}
+
+func typeNameAtPosition(text string, line, column, fieldColumn int, fieldName string, fieldType *ast.Type) string {
+	if fieldType == nil {
+		return ""
+	}
+	name := fieldType.Name()
+	if name == "" {
+		return ""
+	}
+	col := typeNameColumn(text, line, fieldColumn, fieldName)
+	if col <= 0 {
+		return ""
+	}
+	if !nameMatchesColumn(col, column, name) {
+		return ""
+	}
+	return name
+}
+
+func typeNameColumn(text string, line, fieldColumn int, fieldName string) int {
+	lineText, ok := lineTextAt(text, line)
+	if !ok {
+		return 0
+	}
+	start := max(0, fieldColumn-1)
+	if start >= len(lineText) {
+		return 0
+	}
+	segment := lineText[start:]
+	fieldIndex := strings.Index(segment, fieldName)
+	if fieldIndex == -1 {
+		return 0
+	}
+	afterField := segment[fieldIndex+len(fieldName):]
+	colon := strings.Index(afterField, ":")
+	if colon == -1 {
+		return 0
+	}
+	afterColon := afterField[colon+1:]
+	ws := 0
+	for _, r := range afterColon {
+		if r != ' ' && r != '\t' {
+			break
+		}
+		ws++
+	}
+	columnInSegment := fieldIndex + len(fieldName) + colon + 1 + ws
+	return utf8.RuneCountInString(lineText[:start]) + utf8.RuneCountInString(segment[:columnInSegment]) + 1
+}
+
+func schemaTypeForName(doc *ast.SchemaDocument, name string) *ast.Definition {
+	if doc == nil {
+		return nil
+	}
+	for _, def := range doc.Definitions {
+		if def != nil && def.Name == name {
+			return def
+		}
+	}
+	for _, def := range doc.Extensions {
+		if def != nil && def.Name == name {
+			return def
+		}
+	}
+	return nil
 }
 
 func matchesTypeName(text string, line, column int, name string, fallback int) bool {

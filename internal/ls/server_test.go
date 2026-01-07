@@ -339,6 +339,10 @@ func TestHoverHandler(t *testing.T) {
 	if hover == nil {
 		t.Fatal("expected hover result")
 	}
+	content, ok := hover.Contents.(protocol.MarkupContent)
+	if !ok || !strings.Contains(content.Value, "user: User") {
+		t.Fatalf("expected field hover content, got %#v", hover.Contents)
+	}
 }
 
 func TestHoverSchemaField(t *testing.T) {
@@ -360,7 +364,7 @@ func TestHoverSchemaField(t *testing.T) {
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Position: protocol.Position{
 				Line:      1,
-				Character: 3,
+				Character: 2,
 			},
 		},
 	})
@@ -369,6 +373,45 @@ func TestHoverSchemaField(t *testing.T) {
 	}
 	if hover == nil {
 		t.Fatal("expected hover result")
+	}
+	content, ok := hover.Contents.(protocol.MarkupContent)
+	if !ok || !strings.Contains(content.Value, "bar: String") {
+		t.Fatalf("expected field hover content, got %#v", hover.Contents)
+	}
+}
+
+func TestHoverSchemaFieldTypeReference(t *testing.T) {
+	s := New()
+	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
+	text := "type Foo {\n  bar: Baz!\n}\n type Baz { id: ID }\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Name:  string(uri),
+		Input: text,
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[uri] = text
+	s.state.mu.Unlock()
+
+	hover, err := s.hover(nil, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      1,
+				Character: 10,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("hover error: %v", err)
+	}
+	if hover == nil {
+		t.Fatal("expected hover result")
+	}
+	content, ok := hover.Contents.(protocol.MarkupContent)
+	if !ok || !strings.Contains(content.Value, "type Baz") {
+		t.Fatalf("expected type hover content, got %#v", hover.Contents)
 	}
 }
 
@@ -400,6 +443,10 @@ func TestHoverSchemaType(t *testing.T) {
 	}
 	if hover == nil {
 		t.Fatal("expected hover result")
+	}
+	content, ok := hover.Contents.(protocol.MarkupContent)
+	if !ok || !strings.Contains(content.Value, "type Foo") {
+		t.Fatalf("expected type hover content, got %#v", hover.Contents)
 	}
 }
 
