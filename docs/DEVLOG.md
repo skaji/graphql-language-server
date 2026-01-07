@@ -19,6 +19,7 @@
 - Schema validation is skipped when schema parsing has syntax errors.
 - Schema validation errors keep the last known good schema loaded.
 - Schema diagnostics are cleared for all schema files once fixed.
+- Schema validation is intentionally suppressed while parsing is broken to reduce noise.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.
   - Default discovery scans all `*.graphql` and `*.graphqls` under the workspace.
@@ -39,7 +40,7 @@
 
 ## Configuration
 - `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.
-- If `schemaPaths` is empty, the server scans `.graphqls` and `*schema*.graphql`.
+- If `schemaPaths` is empty, the server scans all `.graphql` and `.graphqls` under the workspace.
 
 Example:
 ```json
@@ -63,6 +64,7 @@ Example:
 - Workspace schema loading and validation diagnostics.
 - Hover support for fields.
 - Go-to-definition for fields and types.
+- Go-to-definition for schema type references.
 - Basic completion for fields, types, and directives.
 - Completion snippets for arguments and selection sets.
 - Type condition completion for inline fragments.
@@ -73,5 +75,6 @@ Example:
 
 ## Next Steps
 - Completion context improvements (nested selection accuracy, argument snippets).
+- Diagnostic noise reduction for validation errors during typing.
 - Improve schema/query separation and caching.
 - Add config file support (e.g. `graphql-language-server.json`).
