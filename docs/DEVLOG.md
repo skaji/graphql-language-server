@@ -16,6 +16,7 @@
 - Incremental text changes are applied using LSP ranges.
 - Schema diagnostics are logged with a short message list when present.
 - Schema validation also runs on `didSave`.
+- Schema loading is debounced (~300ms) after text changes.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.
   - Default discovery scans all `*.graphql` and `*.graphqls` under the workspace.

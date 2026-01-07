@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/tliron/glsp"
@@ -75,6 +76,7 @@ func TestSchemaDiscoveryIncludesGraphQLFiles(t *testing.T) {
 }
 
 func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/query.graphql")
 
@@ -134,6 +136,7 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 }
 
 func TestDidSaveTriggersSchemaLoad(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "schema.graphql")
@@ -168,6 +171,7 @@ func TestDidSaveTriggersSchemaLoad(t *testing.T) {
 }
 
 func TestDidChangeIncrementalUpdatesText(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
 	initial := "type Query {\n  foo: Foo\n}\n"
@@ -209,6 +213,7 @@ func TestDidChangeIncrementalUpdatesText(t *testing.T) {
 }
 
 func TestHoverHandler(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/query.graphql")
 	query := "{ user { name } }"
@@ -239,6 +244,7 @@ func TestHoverHandler(t *testing.T) {
 }
 
 func TestDefinitionHandlerField(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
 	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphqls")
@@ -276,6 +282,7 @@ func TestDefinitionHandlerField(t *testing.T) {
 }
 
 func TestDefinitionHandlerType(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphqls")
 	schemaText := "type Query { user: User }\n type User { name: String }\n"
@@ -311,6 +318,7 @@ func TestDefinitionHandlerType(t *testing.T) {
 }
 
 func TestDefinitionHandlerSchemaReference(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphql")
 	schemaText := "type Query { foo: Foo }\n type Foo { a: Int }\n"
@@ -346,6 +354,7 @@ func TestDefinitionHandlerSchemaReference(t *testing.T) {
 }
 
 func TestCompletionFields(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
 	query := "{ user { name } }"
@@ -394,6 +403,7 @@ func TestCompletionFields(t *testing.T) {
 }
 
 func TestCompletionDirectives(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
 	query := "{ user @ }"
@@ -428,6 +438,7 @@ func TestCompletionDirectives(t *testing.T) {
 }
 
 func TestCompletionTypeCondition(t *testing.T) {
+	setSchemaDebounceForTest(t, 0)
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
 	query := "{ ... on }"
@@ -496,4 +507,12 @@ func findCompletionItem(items []protocol.CompletionItem, label string) (protocol
 		}
 	}
 	return protocol.CompletionItem{}, false
+}
+
+func setSchemaDebounceForTest(t *testing.T, delay time.Duration) {
+	previous := schemaDebounceDelay
+	schemaDebounceDelay = delay
+	t.Cleanup(func() {
+		schemaDebounceDelay = previous
+	})
 }

@@ -97,7 +97,7 @@ func (s *Server) didOpen(context *glsp.Context, params *protocol.DidOpenTextDocu
 	s.state.mu.Unlock()
 
 	s.publishQueryDiagnostics(context, params.TextDocument.URI, params.TextDocument.Text)
-	s.loadWorkspaceSchema(context)
+	s.scheduleSchemaLoad(context)
 	return nil
 }
 
@@ -122,7 +122,7 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 	s.state.mu.Unlock()
 
 	s.publishQueryDiagnostics(context, params.TextDocument.URI, text)
-	s.loadWorkspaceSchema(context)
+	s.scheduleSchemaLoad(context)
 	return nil
 }
 
@@ -133,13 +133,13 @@ func (s *Server) didClose(context *glsp.Context, params *protocol.DidCloseTextDo
 	delete(s.state.queryDiagnostics, params.TextDocument.URI)
 	s.state.mu.Unlock()
 
-	s.loadWorkspaceSchema(context)
+	s.scheduleSchemaLoad(context)
 	s.publishCombinedDiagnostics(context, params.TextDocument.URI)
 	return nil
 }
 
 func (s *Server) didSave(context *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
 	slog.Debug("didSave", "uri", params.TextDocument.URI)
-	s.loadWorkspaceSchema(context)
+	s.scheduleSchemaLoad(context)
 	return nil
 }

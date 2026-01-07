@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -21,6 +22,10 @@ const (
 	maxScanDepth   = 8
 	maxDirEntries  = 5000
 )
+
+const defaultSchemaDebounceDelay = 300 * time.Millisecond
+
+var schemaDebounceDelay = defaultSchemaDebounceDelay
 
 var errStopScan = errors.New("stop schema scan")
 
@@ -81,6 +86,27 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 	}
 
 	s.publishAllDiagnostics(context)
+}
+
+func (s *Server) scheduleSchemaLoad(context *glsp.Context) {
+	if context == nil || context.Notify == nil {
+		return
+	}
+
+	if schemaDebounceDelay <= 0 {
+		s.loadWorkspaceSchema(context)
+		return
+	}
+
+	notify := context.Notify
+	s.state.mu.Lock()
+	if s.state.schemaDebounce != nil {
+		s.state.schemaDebounce.Stop()
+	}
+	s.state.schemaDebounce = time.AfterFunc(schemaDebounceDelay, func() {
+		s.loadWorkspaceSchema(&glsp.Context{Notify: notify})
+	})
+	s.state.mu.Unlock()
 }
 
 func (s *Server) collectSchemaSources() ([]*ast.Source, map[protocol.DocumentUri]struct{}) {
