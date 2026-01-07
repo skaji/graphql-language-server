@@ -13,6 +13,7 @@
 - Logs include source file/line (basename only) and process ID.
 - Schema load debug logs include all type names.
 - Definition logs include the missing type name when possible.
+- Incremental text changes are applied using LSP ranges.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.
   - Default discovery scans all `*.graphql` and `*.graphqls` under the workspace.

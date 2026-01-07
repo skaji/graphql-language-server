@@ -104,13 +104,13 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 		return nil
 	}
 
-	var text string
-	switch change := params.ContentChanges[len(params.ContentChanges)-1].(type) {
-	case protocol.TextDocumentContentChangeEventWhole:
-		text = change.Text
-	case protocol.TextDocumentContentChangeEvent:
-		text = change.Text
-	default:
+	s.state.mu.Lock()
+	current := s.state.docs[params.TextDocument.URI]
+	s.state.mu.Unlock()
+
+	text, ok := applyContentChanges(current, params.ContentChanges)
+	if !ok {
+		slog.Debug("didChange: unsupported change payload", "uri", params.TextDocument.URI)
 		return nil
 	}
 	slog.Debug("didChange", "uri", params.TextDocument.URI, "version", params.TextDocument.Version, "length", len(text))

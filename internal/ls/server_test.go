@@ -133,6 +133,47 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 	}
 }
 
+func TestDidChangeIncrementalUpdatesText(t *testing.T) {
+	s := New()
+	uri := protocol.DocumentUri("file:///tmp/schema.graphql")
+	initial := "type Query {\n  foo: Foo\n}\n"
+
+	s.state.mu.Lock()
+	s.state.docs[uri] = initial
+	s.state.mu.Unlock()
+
+	context := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+
+	err := s.didChange(context, &protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			Version:                2,
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{
+				Range: &protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 2},
+					End:   protocol.Position{Line: 1, Character: 5},
+				},
+				Text: "bar",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("didChange error: %v", err)
+	}
+
+	s.state.mu.Lock()
+	updated := s.state.docs[uri]
+	s.state.mu.Unlock()
+
+	if !strings.Contains(updated, "bar: Foo") {
+		t.Fatalf("expected updated text, got %q", updated)
+	}
+}
+
 func TestHoverHandler(t *testing.T) {
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/query.graphql")
