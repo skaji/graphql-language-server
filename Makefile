@@ -6,3 +6,6 @@ test:
 
 lint:
 	bash lint.sh
+
+release-snapshot:
+	goreleaser release --snapshot --clean

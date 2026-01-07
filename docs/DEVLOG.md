@@ -35,6 +35,7 @@
 - Hover: schema type references render full type definitions.
 - Hover: schema argument type references resolve to the correct scalar.
 - References: schema type references across schema sources.
+- GitHub Actions: build/test/lint workflow (golangci-lint action).
 - Schema file detection uses loaded schema sources, not just file naming.
 - Go-to-definition: fields in queries and type names in schema files.
 - Go-to-definition: schema type references within SDL.
