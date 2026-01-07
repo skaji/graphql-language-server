@@ -13,6 +13,13 @@ import (
 var version = "dev"
 
 func main() {
+	if hasHelpFlag(os.Args[1:]) {
+		fmt.Println("graphql-language-server: GraphQL language server")
+		fmt.Println("")
+		fmt.Println("Usage:")
+		fmt.Println("  graphql-language-server [--version] [--help]")
+		return
+	}
 	if hasVersionFlag(os.Args[1:]) {
 		fmt.Println(version)
 		return
@@ -69,6 +76,16 @@ func hasVersionFlag(args []string) bool {
 	for _, arg := range args {
 		switch arg {
 		case "--version":
+			return true
+		}
+	}
+	return false
+}
+
+func hasHelpFlag(args []string) bool {
+	for _, arg := range args {
+		switch arg {
+		case "--help", "-h":
 			return true
 		}
 	}
