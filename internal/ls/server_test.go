@@ -410,7 +410,7 @@ func TestHoverSchemaFieldTypeReference(t *testing.T) {
 		t.Fatal("expected hover result")
 	}
 	content, ok := hover.Contents.(protocol.MarkupContent)
-	if !ok || !strings.Contains(content.Value, "type Baz") {
+	if !ok || !strings.Contains(content.Value, "type Baz {") {
 		t.Fatalf("expected type hover content, got %#v", hover.Contents)
 	}
 }
@@ -445,7 +445,7 @@ func TestHoverSchemaType(t *testing.T) {
 		t.Fatal("expected hover result")
 	}
 	content, ok := hover.Contents.(protocol.MarkupContent)
-	if !ok || !strings.Contains(content.Value, "type Foo") {
+	if !ok || !strings.Contains(content.Value, "type Foo {") {
 		t.Fatalf("expected type hover content, got %#v", hover.Contents)
 	}
 }

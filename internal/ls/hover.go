@@ -104,7 +104,7 @@ func findSchemaHover(doc *ast.SchemaDocument, text string, line, column int) *Ho
 			continue
 		}
 		if def.Position.Line == line {
-			if typeSignature := schemaTypeSignature(def); typeSignature != "" {
+			if typeSignature := schemaDefinitionSnippet(def); typeSignature != "" {
 				if matchesTypeName(text, line, column, def.Name, def.Position.Column) {
 					return &HoverInfo{
 						Name:        def.Name,
@@ -135,7 +135,7 @@ func findSchemaHover(doc *ast.SchemaDocument, text string, line, column int) *Ho
 					return &HoverInfo{
 						Name:        typeDef.Name,
 						TypeString:  string(typeDef.Kind),
-						Signature:   schemaTypeSignature(typeDef),
+						Signature:   schemaDefinitionSnippet(typeDef),
 						Description: typeDef.Description,
 					}
 				}
@@ -150,7 +150,7 @@ func findSchemaHover(doc *ast.SchemaDocument, text string, line, column int) *Ho
 	return nil
 }
 
-func schemaTypeSignature(def *ast.Definition) string {
+func schemaDefinitionSnippet(def *ast.Definition) string {
 	if def == nil {
 		return ""
 	}
@@ -158,7 +158,58 @@ func schemaTypeSignature(def *ast.Definition) string {
 	if keyword == "" {
 		return def.Name
 	}
-	return keyword + " " + def.Name
+	switch def.Kind {
+	case ast.Object, ast.Interface, ast.InputObject:
+		return schemaFieldBlock(keyword, def.Name, def.Fields)
+	case ast.Enum:
+		return schemaEnumBlock(def.Name, def.EnumValues)
+	case ast.Union:
+		return schemaUnionSignature(def.Name, def.Types)
+	default:
+		return keyword + " " + def.Name
+	}
+}
+
+func schemaFieldBlock(keyword, name string, fields ast.FieldList) string {
+	var b strings.Builder
+	b.WriteString(keyword)
+	b.WriteByte(' ')
+	b.WriteString(name)
+	b.WriteString(" {\n")
+	for _, field := range fields {
+		if field == nil {
+			continue
+		}
+		b.WriteString("  ")
+		b.WriteString(fieldSignature(field))
+		b.WriteByte('\n')
+	}
+	b.WriteByte('}')
+	return b.String()
+}
+
+func schemaEnumBlock(name string, values ast.EnumValueList) string {
+	var b strings.Builder
+	b.WriteString("enum ")
+	b.WriteString(name)
+	b.WriteString(" {\n")
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		b.WriteString("  ")
+		b.WriteString(value.Name)
+		b.WriteByte('\n')
+	}
+	b.WriteByte('}')
+	return b.String()
+}
+
+func schemaUnionSignature(name string, types []string) string {
+	if len(types) == 0 {
+		return "union " + name
+	}
+	return "union " + name + " = " + strings.Join(types, " | ")
 }
 
 func schemaTypeKeyword(kind ast.DefinitionKind) string {
