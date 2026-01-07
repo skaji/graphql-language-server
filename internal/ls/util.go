@@ -112,3 +112,18 @@ func isSchemaURI(uri protocol.DocumentUri) bool {
 	}
 	return isSchemaPath(path)
 }
+
+func lineStartIndex(text string, line int) int {
+	if line <= 1 {
+		return 0
+	}
+	start := 0
+	for i := 1; i < line; i++ {
+		next := strings.Index(text[start:], "\n")
+		if next == -1 {
+			return len(text)
+		}
+		start += next + 1
+	}
+	return start
+}

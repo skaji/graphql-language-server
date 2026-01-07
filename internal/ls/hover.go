@@ -2,7 +2,6 @@ package ls
 
 import (
 	"log/slog"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/tliron/glsp"
@@ -195,19 +194,4 @@ func PositionToRuneOffset(text string, pos protocol.Position) (int, int, int) {
 		column = 1
 	}
 	return offset, line, column
-}
-
-func lineStartIndex(text string, line int) int {
-	if line <= 1 {
-		return 0
-	}
-	start := 0
-	for i := 1; i < line; i++ {
-		next := strings.Index(text[start:], "\n")
-		if next == -1 {
-			return len(text)
-		}
-		start += next + 1
-	}
-	return start
 }
