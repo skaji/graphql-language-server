@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"log/slog"
 	"strings"
 	"unicode/utf8"
 
@@ -17,6 +18,7 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	schema := s.state.schema
 	s.state.mu.Unlock()
 	if schema == nil {
+		slog.Debug("definition: schema not loaded", "uri", uri)
 		return nil, nil
 	}
 
@@ -28,8 +30,10 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	offset, line, column := PositionToRuneOffset(text, params.Position)
 	if isSchemaURI(uri) {
 		if loc := findTypeDefinitionLocation(schema, uri, text, line, column); loc != nil {
+			slog.Debug("definition: schema type resolved", "uri", uri, "line", line, "column", column)
 			return []protocol.Location{*loc}, nil
 		}
+		slog.Debug("definition: schema type not found", "uri", uri, "line", line, "column", column)
 		return nil, nil
 	}
 
@@ -43,13 +47,16 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 
 	def := findFieldDefinitionAtPosition(doc, schema, offset, line, column)
 	if def == nil {
+		slog.Debug("definition: field not found", "uri", uri, "line", line, "column", column)
 		return nil, nil
 	}
 
 	loc := locationFromDefinition(def.Name, def.Position)
 	if loc == nil {
+		slog.Debug("definition: location missing", "uri", uri, "line", line, "column", column)
 		return nil, nil
 	}
+	slog.Debug("definition: field resolved", "uri", uri, "line", line, "column", column)
 	return []protocol.Location{*loc}, nil
 }
 

@@ -2,6 +2,7 @@ package ls
 
 import (
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,10 +33,12 @@ func (s *Server) publishQueryDiagnostics(context *glsp.Context, uri protocol.Doc
 	s.state.mu.Lock()
 	s.state.queryDiagnostics[uri] = diagnostics
 	s.state.mu.Unlock()
+	slog.Debug("query diagnostics updated", "uri", uri, "count", len(diagnostics))
 	s.publishCombinedDiagnostics(context, uri)
 }
 
 func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
+	slog.Debug("loading workspace schema")
 	sources, uris := s.collectSchemaSources()
 	diagnosticsByURI := make(map[protocol.DocumentUri][]protocol.Diagnostic)
 	var schema *ast.Schema
@@ -51,6 +54,7 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 	s.state.schema = schema
 	s.state.schemaDiagnostics = diagnosticsByURI
 	s.state.mu.Unlock()
+	slog.Debug("schema load complete", "sources", len(sources), "diagnostics", len(diagnosticsByURI))
 
 	s.publishAllDiagnostics(context)
 }

@@ -2,6 +2,7 @@ package ls
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -19,25 +20,33 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 	schema := s.state.schema
 	s.state.mu.Unlock()
 	if schema == nil {
+		slog.Debug("completion: schema not loaded", "uri", uri)
 		return nil, nil
 	}
 
 	text, ok := s.documentText(uri)
 	if !ok {
+		slog.Debug("completion: document missing", "uri", uri)
 		return nil, nil
 	}
 
 	offset, _, _ := PositionToRuneOffset(text, params.Position)
 	if isSchemaURI(uri) {
-		return schemaCompletionItems(schema), nil
+		items := schemaCompletionItems(schema)
+		slog.Debug("completion: schema items", "uri", uri, "count", len(items))
+		return items, nil
 	}
 
 	if shouldCompleteDirectives(text, offset) {
-		return directiveCompletionItems(schema), nil
+		items := directiveCompletionItems(schema)
+		slog.Debug("completion: directive items", "uri", uri, "count", len(items))
+		return items, nil
 	}
 
 	if shouldCompleteTypeCondition(text, offset) {
-		return typeCompletionItems(schema), nil
+		items := typeCompletionItems(schema)
+		slog.Debug("completion: type condition items", "uri", uri, "count", len(items))
+		return items, nil
 	}
 
 	doc, err := parser.ParseQuery(&ast.Source{
@@ -45,6 +54,7 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 		Input: text,
 	})
 	if err != nil {
+		slog.Debug("completion: parse error", "uri", uri, "error", err)
 		return nil, nil
 	}
 
@@ -52,7 +62,9 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 	if parent == nil {
 		parent = schema.Query
 	}
-	return fieldCompletionItems(parent, schema), nil
+	items := fieldCompletionItems(parent, schema)
+	slog.Debug("completion: field items", "uri", uri, "count", len(items))
+	return items, nil
 }
 
 func shouldCompleteDirectives(text string, offset int) bool {

@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"log/slog"
 	"strings"
 	"unicode/utf8"
 
@@ -41,6 +42,7 @@ func (s *Server) hover(_ *glsp.Context, params *protocol.HoverParams) (*protocol
 	offset, line, column := PositionToRuneOffset(text, params.Position)
 	info := FindFieldHover(doc, schema, offset, line, column)
 	if info == nil {
+		slog.Debug("hover: no field info", "uri", uri, "line", line, "column", column)
 		return nil, nil
 	}
 
