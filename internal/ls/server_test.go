@@ -890,6 +890,74 @@ func TestCompletionSchemaTypeReference(t *testing.T) {
 	}
 }
 
+func TestCompletionSchemaUnionTypes(t *testing.T) {
+	s := New()
+	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphql")
+	schemaText := "union Foo = "
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type A { a: String }\n type B { b: String }\n union Foo = A | B\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[schemaURI] = schemaText
+	s.state.mu.Unlock()
+
+	result, err := s.completion(nil, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: schemaURI},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 11,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("completion error: %v", err)
+	}
+	items, ok := result.([]protocol.CompletionItem)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected completion items, got %#v", result)
+	}
+	if !hasCompletionLabel(items, "A") || !hasCompletionLabel(items, "B") {
+		t.Fatalf("expected union type completion, got %v", completionLabels(items))
+	}
+}
+
+func TestCompletionSchemaKeywordsPrefix(t *testing.T) {
+	s := New()
+	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphql")
+	schemaText := "u"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type Query { ok: String }\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[schemaURI] = schemaText
+	s.state.mu.Unlock()
+
+	result, err := s.completion(nil, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: schemaURI},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 1,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("completion error: %v", err)
+	}
+	items, ok := result.([]protocol.CompletionItem)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected completion items, got %#v", result)
+	}
+	if !hasCompletionLabel(items, "union") {
+		t.Fatalf("expected union keyword completion, got %v", completionLabels(items))
+	}
+}
+
 func TestCompletionSchemaFieldNameDoesNotSuggestTypes(t *testing.T) {
 	s := New()
 	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphql")

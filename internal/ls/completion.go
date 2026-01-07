@@ -38,9 +38,20 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 	}
 
 	if s.isSchemaURI(uri) {
+		if shouldCompleteUnionTypes(text, offset) {
+			items := unionTypeCompletionItems(schema)
+			slog.Debug("completion: schema union type items", "uri", uri, "count", len(items))
+			return items, nil
+		}
 		if shouldCompleteSchemaTypes(text, offset) {
 			items := typeCompletionItems(schema)
 			slog.Debug("completion: schema type items", "uri", uri, "count", len(items))
+			return items, nil
+		}
+		if shouldCompleteSchemaKeywords(text, offset) {
+			prefix := schemaKeywordPrefix(text, offset)
+			items := schemaKeywordCompletionItems(prefix)
+			slog.Debug("completion: schema keyword items", "uri", uri, "count", len(items), "prefix", prefix)
 			return items, nil
 		}
 		slog.Debug("completion: schema field name position; no type suggestions", "uri", uri)
@@ -95,6 +106,24 @@ func shouldCompleteDirectives(text string, offset int) bool {
 func typeCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
 	items := make([]protocol.CompletionItem, 0, len(schema.Types))
 	for name, def := range schema.Types {
+		kind := completionKindForDefinition(def)
+		items = append(items, protocol.CompletionItem{
+			Label: name,
+			Kind:  &kind,
+		})
+	}
+	return items
+}
+
+func unionTypeCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
+	if schema == nil {
+		return nil
+	}
+	items := make([]protocol.CompletionItem, 0, len(schema.Types))
+	for name, def := range schema.Types {
+		if def == nil || def.Kind != ast.Object {
+			continue
+		}
 		kind := completionKindForDefinition(def)
 		items = append(items, protocol.CompletionItem{
 			Label: name,
@@ -424,6 +453,144 @@ func shouldCompleteSchemaTypes(text string, offset int) bool {
 		return false
 	}
 	return strings.Contains(linePrefix, ":")
+}
+
+func shouldCompleteSchemaKeywords(text string, offset int) bool {
+	linePrefix, ok := linePrefixAtOffset(text, offset)
+	if !ok {
+		return false
+	}
+	if strings.Contains(linePrefix, "\"") {
+		return false
+	}
+	if strings.Contains(linePrefix, ":") {
+		return false
+	}
+	return schemaBraceDepthAtOffset(text, offset) == 0
+}
+
+func shouldCompleteUnionTypes(text string, offset int) bool {
+	linePrefix, ok := linePrefixAtOffset(text, offset)
+	if !ok {
+		return false
+	}
+	if strings.Contains(linePrefix, "\"") {
+		return false
+	}
+	if !strings.Contains(linePrefix, "union") {
+		return false
+	}
+	return strings.Contains(linePrefix, "=")
+}
+
+func schemaKeywordCompletionItems(prefix string) []protocol.CompletionItem {
+	keywords := []string{
+		"type",
+		"input",
+		"interface",
+		"enum",
+		"union",
+		"scalar",
+		"directive",
+		"schema",
+		"extend",
+	}
+	kind := protocol.CompletionItemKindKeyword
+	items := make([]protocol.CompletionItem, 0, len(keywords))
+	for _, keyword := range keywords {
+		if prefix != "" && !strings.HasPrefix(keyword, prefix) {
+			continue
+		}
+		items = append(items, protocol.CompletionItem{
+			Label: keyword,
+			Kind:  &kind,
+		})
+	}
+	return items
+}
+
+func schemaKeywordPrefix(text string, offset int) string {
+	linePrefix, ok := linePrefixAtOffset(text, offset)
+	if !ok {
+		return ""
+	}
+	runes := []rune(linePrefix)
+	end := len(runes)
+	start := end
+	for start > 0 {
+		r := runes[start-1]
+		if r == '_' || (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+			start--
+			continue
+		}
+		break
+	}
+	if start < end {
+		return string(runes[start:end])
+	}
+	return ""
+}
+
+func schemaBraceDepthAtOffset(text string, offset int) int {
+	runes := []rune(text)
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(runes) {
+		offset = len(runes)
+	}
+	inString := false
+	inBlockString := false
+	inComment := false
+	depth := 0
+	for i := 0; i < offset; i++ {
+		r := runes[i]
+		if inComment {
+			if r == '\n' {
+				inComment = false
+			}
+			continue
+		}
+		if inString {
+			if r == '\\' {
+				i++
+				continue
+			}
+			if r == '"' {
+				inString = false
+			}
+			continue
+		}
+		if inBlockString {
+			if r == '"' && i+2 < len(runes) && runes[i+1] == '"' && runes[i+2] == '"' {
+				inBlockString = false
+				i += 2
+			}
+			continue
+		}
+		if r == '#' {
+			inComment = true
+			continue
+		}
+		if r == '"' {
+			if i+2 < len(runes) && runes[i+1] == '"' && runes[i+2] == '"' {
+				inBlockString = true
+				i += 2
+			} else {
+				inString = true
+			}
+			continue
+		}
+		switch r {
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		}
+	}
+	return depth
 }
 
 func linePrefixAtOffset(text string, offset int) (string, bool) {
