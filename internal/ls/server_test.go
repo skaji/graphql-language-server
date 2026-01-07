@@ -92,10 +92,10 @@ func TestSchemaParseErrorSkipsValidation(t *testing.T) {
 	s.state.schema = previous
 	s.state.mu.Unlock()
 
-	context := &glsp.Context{
+	ctx := &glsp.Context{
 		Notify: func(_ string, _ any) {},
 	}
-	s.loadWorkspaceSchema(context)
+	s.loadWorkspaceSchema(ctx)
 
 	s.state.mu.Lock()
 	current := s.state.schema
@@ -124,16 +124,16 @@ func TestSchemaDiagnosticsClearedAfterFix(t *testing.T) {
 	s.state.schemaPaths = nil
 	s.state.mu.Unlock()
 
-	context := &glsp.Context{
+	ctx := &glsp.Context{
 		Notify: func(_ string, _ any) {},
 	}
-	s.loadWorkspaceSchema(context)
+	s.loadWorkspaceSchema(ctx)
 
 	if err := os.WriteFile(schemaPath, []byte("type Query { ok: String }\n"), 0o644); err != nil {
 		t.Fatalf("write schema: %v", err)
 	}
 
-	s.loadWorkspaceSchema(context)
+	s.loadWorkspaceSchema(ctx)
 
 	s.state.mu.Lock()
 	diagnostics := s.state.schemaDiagnostics
@@ -163,10 +163,10 @@ func TestSchemaValidationErrorKeepsPreviousSchema(t *testing.T) {
 	s.state.schema = previous
 	s.state.mu.Unlock()
 
-	context := &glsp.Context{
+	ctx := &glsp.Context{
 		Notify: func(_ string, _ any) {},
 	}
-	s.loadWorkspaceSchema(context)
+	s.loadWorkspaceSchema(ctx)
 
 	s.state.mu.Lock()
 	current := s.state.schema
@@ -182,7 +182,7 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 	uri := protocol.DocumentUri("file:///tmp/query.graphql")
 
 	var published []protocol.PublishDiagnosticsParams
-	context := &glsp.Context{
+	ctx := &glsp.Context{
 		Notify: func(method string, params any) {
 			if method != string(protocol.ServerTextDocumentPublishDiagnostics) {
 				return
@@ -195,7 +195,7 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 		},
 	}
 
-	if err := s.didOpen(context, &protocol.DidOpenTextDocumentParams{
+	if err := s.didOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:        uri,
 			LanguageID: "graphql",
@@ -209,7 +209,7 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 		t.Fatal("expected diagnostics on didOpen")
 	}
 
-	if err := s.didChange(context, &protocol.DidChangeTextDocumentParams{
+	if err := s.didChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
 			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
 			Version:                2,
@@ -226,7 +226,7 @@ func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 		t.Fatal("expected no diagnostics on didChange")
 	}
 
-	if err := s.didClose(context, &protocol.DidCloseTextDocumentParams{
+	if err := s.didClose(ctx, &protocol.DidCloseTextDocumentParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}); err != nil {
 		t.Fatalf("didClose error: %v", err)
@@ -253,10 +253,10 @@ func TestDidSaveTriggersSchemaLoad(t *testing.T) {
 	s.state.schemaPaths = []string{"schema.graphql"}
 	s.state.mu.Unlock()
 
-	context := &glsp.Context{
+	ctx := &glsp.Context{
 		Notify: func(_ string, _ any) {},
 	}
-	if err := s.didSave(context, &protocol.DidSaveTextDocumentParams{
+	if err := s.didSave(ctx, &protocol.DidSaveTextDocumentParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}); err != nil {
 		t.Fatalf("didSave error: %v", err)
@@ -279,11 +279,11 @@ func TestDidChangeIncrementalUpdatesText(t *testing.T) {
 	s.state.docs[uri] = initial
 	s.state.mu.Unlock()
 
-	context := &glsp.Context{
+	ctx := &glsp.Context{
 		Notify: func(_ string, _ any) {},
 	}
 
-	err := s.didChange(context, &protocol.DidChangeTextDocumentParams{
+	err := s.didChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
 			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
 			Version:                2,

@@ -32,12 +32,12 @@ func newScanStats() *scanStats {
 	return &scanStats{}
 }
 
-func (s *Server) publishQueryDiagnostics(context *glsp.Context, uri protocol.DocumentUri, text string) {
+func (s *Server) publishQueryDiagnostics(ctx *glsp.Context, uri protocol.DocumentUri, text string) {
 	if isSchemaURI(uri) {
 		s.state.mu.Lock()
 		delete(s.state.queryDiagnostics, uri)
 		s.state.mu.Unlock()
-		s.publishCombinedDiagnostics(context, uri)
+		s.publishCombinedDiagnostics(ctx, uri)
 		return
 	}
 
@@ -52,10 +52,10 @@ func (s *Server) publishQueryDiagnostics(context *glsp.Context, uri protocol.Doc
 	s.state.queryDiagnostics[uri] = diagnostics
 	s.state.mu.Unlock()
 	slog.Debug("query diagnostics updated", "uri", uri, "count", len(diagnostics))
-	s.publishCombinedDiagnostics(context, uri)
+	s.publishCombinedDiagnostics(ctx, uri)
 }
 
-func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
+func (s *Server) loadWorkspaceSchema(ctx *glsp.Context) {
 	slog.Debug("loading workspace schema")
 	s.state.mu.Lock()
 	previousSchema := s.state.schema
@@ -72,7 +72,7 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 			s.state.mu.Lock()
 			s.state.schemaDiagnostics = diagnosticsByURI
 			s.state.mu.Unlock()
-			s.publishAllDiagnostics(context)
+			s.publishAllDiagnostics(ctx)
 			return
 		}
 		loadedSchema, err := gqlparser.LoadSchema(sources...)
@@ -99,7 +99,7 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 		slogSchemaDiagnostics(diagnosticsByURI)
 	}
 
-	s.publishAllDiagnostics(context)
+	s.publishAllDiagnostics(ctx)
 }
 
 func (s *Server) collectSchemaSources() ([]*ast.Source, map[protocol.DocumentUri]struct{}) {
@@ -325,7 +325,7 @@ func slogSchemaDiagnostics(diags map[protocol.DocumentUri][]protocol.Diagnostic)
 	}
 }
 
-func (s *Server) publishAllDiagnostics(context *glsp.Context) {
+func (s *Server) publishAllDiagnostics(ctx *glsp.Context) {
 	s.state.mu.Lock()
 	uris := make(map[protocol.DocumentUri]struct{})
 	for uri := range s.state.queryDiagnostics {
@@ -337,11 +337,11 @@ func (s *Server) publishAllDiagnostics(context *glsp.Context) {
 	s.state.mu.Unlock()
 
 	for uri := range uris {
-		s.publishCombinedDiagnostics(context, uri)
+		s.publishCombinedDiagnostics(ctx, uri)
 	}
 }
 
-func (s *Server) publishCombinedDiagnostics(context *glsp.Context, uri protocol.DocumentUri) {
+func (s *Server) publishCombinedDiagnostics(ctx *glsp.Context, uri protocol.DocumentUri) {
 	s.state.mu.Lock()
 	queryDiagnostics := s.state.queryDiagnostics[uri]
 	schemaDiagnostics := s.state.schemaDiagnostics[uri]
@@ -350,13 +350,13 @@ func (s *Server) publishCombinedDiagnostics(context *glsp.Context, uri protocol.
 	combined := make([]protocol.Diagnostic, 0, len(queryDiagnostics)+len(schemaDiagnostics))
 	combined = append(combined, queryDiagnostics...)
 	combined = append(combined, schemaDiagnostics...)
-	notifyDiagnostics(context, uri, combined)
+	notifyDiagnostics(ctx, uri, combined)
 }
 
-func notifyDiagnostics(context *glsp.Context, uri protocol.DocumentUri, diagnostics []protocol.Diagnostic) {
+func notifyDiagnostics(ctx *glsp.Context, uri protocol.DocumentUri, diagnostics []protocol.Diagnostic) {
 	params := protocol.PublishDiagnosticsParams{
 		URI:         uri,
 		Diagnostics: diagnostics,
 	}
-	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, params)
+	ctx.Notify(protocol.ServerTextDocumentPublishDiagnostics, params)
 }

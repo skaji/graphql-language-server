@@ -90,18 +90,18 @@ func (s *Server) setTrace(_ *glsp.Context, params *protocol.SetTraceParams) erro
 	return nil
 }
 
-func (s *Server) didOpen(context *glsp.Context, params *protocol.DidOpenTextDocumentParams) error {
+func (s *Server) didOpen(ctx *glsp.Context, params *protocol.DidOpenTextDocumentParams) error {
 	slog.Debug("didOpen", "uri", params.TextDocument.URI, "version", params.TextDocument.Version)
 	s.state.mu.Lock()
 	s.state.docs[params.TextDocument.URI] = params.TextDocument.Text
 	s.state.mu.Unlock()
 
-	s.publishQueryDiagnostics(context, params.TextDocument.URI, params.TextDocument.Text)
-	s.loadWorkspaceSchema(context)
+	s.publishQueryDiagnostics(ctx, params.TextDocument.URI, params.TextDocument.Text)
+	s.loadWorkspaceSchema(ctx)
 	return nil
 }
 
-func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeTextDocumentParams) error {
+func (s *Server) didChange(ctx *glsp.Context, params *protocol.DidChangeTextDocumentParams) error {
 	if len(params.ContentChanges) == 0 {
 		return nil
 	}
@@ -121,25 +121,25 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 	s.state.docs[params.TextDocument.URI] = text
 	s.state.mu.Unlock()
 
-	s.publishQueryDiagnostics(context, params.TextDocument.URI, text)
-	s.loadWorkspaceSchema(context)
+	s.publishQueryDiagnostics(ctx, params.TextDocument.URI, text)
+	s.loadWorkspaceSchema(ctx)
 	return nil
 }
 
-func (s *Server) didClose(context *glsp.Context, params *protocol.DidCloseTextDocumentParams) error {
+func (s *Server) didClose(ctx *glsp.Context, params *protocol.DidCloseTextDocumentParams) error {
 	slog.Debug("didClose", "uri", params.TextDocument.URI)
 	s.state.mu.Lock()
 	delete(s.state.docs, params.TextDocument.URI)
 	delete(s.state.queryDiagnostics, params.TextDocument.URI)
 	s.state.mu.Unlock()
 
-	s.loadWorkspaceSchema(context)
-	s.publishCombinedDiagnostics(context, params.TextDocument.URI)
+	s.loadWorkspaceSchema(ctx)
+	s.publishCombinedDiagnostics(ctx, params.TextDocument.URI)
 	return nil
 }
 
-func (s *Server) didSave(context *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
+func (s *Server) didSave(ctx *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
 	slog.Debug("didSave", "uri", params.TextDocument.URI)
-	s.loadWorkspaceSchema(context)
+	s.loadWorkspaceSchema(ctx)
 	return nil
 }
