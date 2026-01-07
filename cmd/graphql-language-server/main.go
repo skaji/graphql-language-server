@@ -30,9 +30,11 @@ func main() {
 		}
 	}
 
-	slog.SetDefault(slog.New(slog.NewTextHandler(output, &slog.HandlerOptions{
-		Level: level,
-	})))
+	logger := slog.New(slog.NewTextHandler(output, &slog.HandlerOptions{
+		Level:     level,
+		AddSource: true,
+	})).With("pid", os.Getpid())
+	slog.SetDefault(logger)
 
 	slog.Debug("debug logging enabled")
 
