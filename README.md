@@ -54,3 +54,6 @@ if executable('graphql-language-server')
   augroup END
 endif
 ```
+
+## License
+MIT
