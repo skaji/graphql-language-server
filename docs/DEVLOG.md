@@ -17,6 +17,7 @@
 - Schema diagnostics are logged with a short message list when present.
 - Schema validation also runs on `didSave`.
 - Schema validation is skipped when schema parsing has syntax errors.
+- Schema diagnostics are cleared for all schema files once fixed.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.
   - Default discovery scans all `*.graphql` and `*.graphqls` under the workspace.

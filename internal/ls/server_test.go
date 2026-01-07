@@ -110,6 +110,41 @@ func TestSchemaParseErrorSkipsValidation(t *testing.T) {
 	}
 }
 
+func TestSchemaDiagnosticsClearedAfterFix(t *testing.T) {
+	s := New()
+	root := t.TempDir()
+	schemaPath := filepath.Join(root, "schema.graphql")
+
+	if err := os.WriteFile(schemaPath, []byte("type Query {"), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	s.state.mu.Lock()
+	s.state.rootPath = root
+	s.state.schemaPaths = nil
+	s.state.mu.Unlock()
+
+	context := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+	s.loadWorkspaceSchema(context)
+
+	if err := os.WriteFile(schemaPath, []byte("type Query { ok: String }\n"), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	s.loadWorkspaceSchema(context)
+
+	s.state.mu.Lock()
+	diagnostics := s.state.schemaDiagnostics
+	s.state.mu.Unlock()
+
+	uri := pathToURI(schemaPath)
+	if list, ok := diagnostics[uri]; !ok || len(list) != 0 {
+		t.Fatalf("expected cleared diagnostics for %s, got %v", uri, diagnostics)
+	}
+}
+
 func TestDidOpenChangeClosePublishesDiagnostics(t *testing.T) {
 	s := New()
 	uri := protocol.DocumentUri("file:///tmp/query.graphql")

@@ -64,6 +64,7 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 		if _, err := parser.ParseSchemas(sources...); err != nil {
 			slog.Debug("schema parse error; skipping validation", "error", err)
 			diagnosticsByURI = GqlErrorDiagnosticsByFile(err, uris)
+			ensureSchemaDiagnosticEntries(diagnosticsByURI, uris)
 			s.state.mu.Lock()
 			s.state.schemaDiagnostics = diagnosticsByURI
 			s.state.mu.Unlock()
@@ -77,6 +78,7 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 		}
 	}
 
+	ensureSchemaDiagnosticEntries(diagnosticsByURI, uris)
 	s.state.mu.Lock()
 	s.state.schema = schema
 	s.state.schemaDiagnostics = diagnosticsByURI
@@ -280,6 +282,14 @@ func schemaTypeNames(schema *ast.Schema) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func ensureSchemaDiagnosticEntries(diags map[protocol.DocumentUri][]protocol.Diagnostic, uris map[protocol.DocumentUri]struct{}) {
+	for uri := range uris {
+		if _, ok := diags[uri]; !ok {
+			diags[uri] = nil
+		}
+	}
 }
 
 func minInt(a, b int) int {
