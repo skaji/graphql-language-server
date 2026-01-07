@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/skaji/graphql-language-server/internal/ls"
@@ -30,10 +31,22 @@ func main() {
 		}
 	}
 
-	logger := slog.New(slog.NewTextHandler(output, &slog.HandlerOptions{
+	handler := slog.NewTextHandler(output, &slog.HandlerOptions{
 		Level:     level,
 		AddSource: true,
-	})).With("pid", os.Getpid())
+		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
+			if attr.Key != slog.SourceKey {
+				return attr
+			}
+			source, ok := attr.Value.Any().(*slog.Source)
+			if !ok || source == nil {
+				return attr
+			}
+			source.File = filepath.Base(source.File)
+			return slog.Attr{Key: slog.SourceKey, Value: slog.AnyValue(source)}
+		},
+	})
+	logger := slog.New(handler).With("pid", os.Getpid())
 	slog.SetDefault(logger)
 
 	slog.Debug("debug logging enabled")
