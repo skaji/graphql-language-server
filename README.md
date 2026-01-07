@@ -2,6 +2,8 @@
 
 GraphQL language server for Go projects, built on `github.com/tliron/glsp` and `github.com/vektah/gqlparser/v2`.
 
+Developed with Codex.
+
 ## Features
 - Diagnostics: syntax and schema validation errors
 - Hover: field type info
