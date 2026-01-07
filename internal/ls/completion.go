@@ -31,21 +31,20 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 	}
 
 	offset, _, _ := PositionToRuneOffset(text, params.Position)
+	if shouldCompleteDirectives(text, offset) {
+		items := directiveCompletionItems(schema)
+		slog.Debug("completion: directive items", "uri", uri, "count", len(items))
+		return items, nil
+	}
+
 	if isSchemaURI(uri) {
 		if shouldCompleteSchemaTypes(text, offset) {
 			items := typeCompletionItems(schema)
 			slog.Debug("completion: schema type items", "uri", uri, "count", len(items))
 			return items, nil
 		}
-		items := schemaCompletionItems(schema)
-		slog.Debug("completion: schema items", "uri", uri, "count", len(items))
-		return items, nil
-	}
-
-	if shouldCompleteDirectives(text, offset) {
-		items := directiveCompletionItems(schema)
-		slog.Debug("completion: directive items", "uri", uri, "count", len(items))
-		return items, nil
+		slog.Debug("completion: schema field name position; no type suggestions", "uri", uri)
+		return nil, nil
 	}
 
 	if shouldCompleteTypeCondition(text, offset) {
@@ -91,13 +90,6 @@ func shouldCompleteDirectives(text string, offset int) bool {
 		index -= size
 	}
 	return false
-}
-
-func schemaCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
-	items := make([]protocol.CompletionItem, 0, len(schema.Types)+len(schema.Directives))
-	items = append(items, typeCompletionItems(schema)...)
-	items = append(items, directiveCompletionItems(schema)...)
-	return items
 }
 
 func typeCompletionItems(schema *ast.Schema) []protocol.CompletionItem {

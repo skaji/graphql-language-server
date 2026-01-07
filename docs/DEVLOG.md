@@ -33,6 +33,7 @@
 - Go-to-definition: schema type references within SDL.
 - Completion: fields, types, and directives with basic context and snippets.
 - Completion: schema field type positions suggest types.
+- Completion avoids type suggestions while typing schema field names.
 
 ## Configuration
 - `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.
