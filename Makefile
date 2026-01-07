@@ -7,5 +7,8 @@ test:
 lint:
 	bash lint.sh
 
+prettier-fix:
+	prettier -w .
+
 release-snapshot:
 	goreleaser release --snapshot --clean

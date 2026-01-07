@@ -1,11 +1,13 @@
 # DEVLOG
 
 ## Purpose
+
 - Build a GraphQL language server in Go.
 - Use `github.com/vektah/gqlparser/v2` for parsing and validation.
 - Grow features incrementally.
 
 ## Development Notes
+
 - LSP is implemented with `github.com/tliron/glsp` (LSP 3.16).
 - Logging uses Go's standard `log/slog`.
 - Debug logs are enabled when `DEBUG` is set; `LOG_FILE` redirects logs to a file.
@@ -26,6 +28,7 @@
   - Scans stop early on deep or large directories to avoid runaway traversal.
 
 ## Current Capabilities
+
 - LSP lifecycle: `initialize`, `shutdown`, `setTrace`.
 - Text sync: `didOpen`, `didChange`, `didClose`.
 - Diagnostics: syntax and schema validation errors.
@@ -46,10 +49,12 @@
 - Completion is also triggered on space to keep type suggestions after `foo: `.
 
 ## Configuration
+
 - `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.
 - If `schemaPaths` is empty, the server scans all `.graphql` and `.graphqls` under the workspace.
 
 Example:
+
 ```json
 {
   "initializationOptions": {
@@ -63,10 +68,12 @@ Example:
 ```
 
 ## Structure
+
 - `cmd/graphql-language-server/main.go`: entry point.
 - `internal/ls/`: LSP implementation and helpers.
 
 ## Milestones Completed
+
 - Minimal LSP server with diagnostics.
 - Workspace schema loading and validation diagnostics.
 - Hover support for fields.
@@ -81,6 +88,7 @@ Example:
 - Refactor into `internal/ls` package with basic tests.
 
 ## Next Steps
+
 - Completion context improvements (nested selection accuracy, argument snippets).
 - Diagnostic noise reduction for validation errors during typing.
 - Improve schema/query separation and caching.

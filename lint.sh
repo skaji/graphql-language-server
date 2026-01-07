@@ -1,7 +1,8 @@
 #!/bin/bash
 
-set euxo -pipefail
+set -euxo pipefail
 
+prettier --check .
 golangci-lint run ./...
 
 GOPLS_OUT=$(git ls-files '*.go' | xargs gopls check -severity hint)
