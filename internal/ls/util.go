@@ -160,11 +160,11 @@ func nameColumnInLine(text string, line int, name string, fallback int) int {
 	if !ok {
 		return fallback
 	}
-	index := strings.Index(lineText, name)
-	if index == -1 {
+	before, _, ok := strings.Cut(lineText, name)
+	if !ok {
 		return fallback
 	}
-	return utf8.RuneCountInString(lineText[:index]) + 1
+	return utf8.RuneCountInString(before) + 1
 }
 
 func fieldSignature(field *ast.FieldDefinition) string {
