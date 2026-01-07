@@ -30,6 +30,10 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	offset, line, column := PositionToRuneOffset(text, params.Position)
 	if isSchemaURI(uri) {
 		target := definitionTargetAtPosition(text, line, column)
+		if loc := findSchemaTypeReferenceLocation(schema, uri, text, line, column); loc != nil {
+			slog.Debug("definition: schema reference resolved", "uri", uri, "line", line, "column", column, "target", target)
+			return []protocol.Location{*loc}, nil
+		}
 		if loc := findTypeDefinitionLocation(schema, uri, text, line, column); loc != nil {
 			slog.Debug("definition: schema type resolved", "uri", uri, "line", line, "column", column)
 			return []protocol.Location{*loc}, nil
@@ -99,6 +103,21 @@ func isIdentRune(r rune) bool {
 		return true
 	}
 	return r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z'
+}
+
+func findSchemaTypeReferenceLocation(schema *ast.Schema, _ protocol.DocumentUri, text string, line, column int) *protocol.Location {
+	if schema == nil {
+		return nil
+	}
+	target := definitionTargetAtPosition(text, line, column)
+	if target == "" {
+		return nil
+	}
+	def := schema.Types[target]
+	if def == nil || def.Position == nil {
+		return nil
+	}
+	return locationFromDefinition(target, def.Position)
 }
 
 func (s *Server) documentText(uri protocol.DocumentUri) (string, bool) {

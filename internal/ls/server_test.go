@@ -235,6 +235,41 @@ func TestDefinitionHandlerType(t *testing.T) {
 	}
 }
 
+func TestDefinitionHandlerSchemaReference(t *testing.T) {
+	s := New()
+	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphql")
+	schemaText := "type Query { foo: Foo }\n type Foo { a: Int }\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Name:  string(schemaURI),
+		Input: schemaText,
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[schemaURI] = schemaText
+	s.state.mu.Unlock()
+
+	result, err := s.definition(nil, &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: schemaURI},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 20,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("definition error: %v", err)
+	}
+	locations, ok := result.([]protocol.Location)
+	if !ok || len(locations) == 0 {
+		t.Fatalf("expected locations, got %T", result)
+	}
+	if locations[0].URI != schemaURI {
+		t.Fatalf("expected schema URI %s, got %s", schemaURI, locations[0].URI)
+	}
+}
+
 func TestCompletionFields(t *testing.T) {
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
