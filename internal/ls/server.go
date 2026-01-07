@@ -10,7 +10,7 @@ import (
 
 var (
 	ServerName = "graphql-language-server"
-	Version    = "0.0.1"
+	Version    = "dev"
 )
 
 type Server struct {

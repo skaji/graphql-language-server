@@ -10,6 +10,8 @@ import (
 	"github.com/skaji/graphql-language-server/internal/ls"
 )
 
+var version = "dev"
+
 func main() {
 	level := slog.LevelInfo
 	if strings.TrimSpace(os.Getenv("DEBUG")) != "" {
@@ -51,6 +53,7 @@ func main() {
 
 	slog.Debug("debug logging enabled")
 
+	ls.Version = version
 	server := ls.New()
 	if err := server.RunStdio(); err != nil {
 		slog.Error("server failed", "error", err)
