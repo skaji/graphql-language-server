@@ -12,10 +12,8 @@ Developed with Codex.
 - Schema discovery with configurable paths (defaults to all `.graphql`/`.graphqls`)
 
 ## Install
-```bash
-# Download the appropriate binary from:
-# https://github.com/skaji/graphql-language-server/releases/latest
-```
+Download the appropriate binary from:
+https://github.com/skaji/graphql-language-server/releases/latest
 
 ## Usage
 The server speaks LSP over stdio. Most editors can launch it directly.
