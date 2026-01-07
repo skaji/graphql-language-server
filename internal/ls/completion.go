@@ -1,6 +1,8 @@
 package ls
 
 import (
+	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -34,6 +36,10 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 		return directiveCompletionItems(schema), nil
 	}
 
+	if shouldCompleteTypeCondition(text, offset) {
+		return typeCompletionItems(schema), nil
+	}
+
 	doc, err := parser.ParseQuery(&ast.Source{
 		Name:  string(uri),
 		Input: text,
@@ -46,7 +52,7 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 	if parent == nil {
 		parent = schema.Query
 	}
-	return fieldCompletionItems(parent), nil
+	return fieldCompletionItems(parent, schema), nil
 }
 
 func shouldCompleteDirectives(text string, offset int) bool {
@@ -72,21 +78,43 @@ func shouldCompleteDirectives(text string, offset int) bool {
 
 func schemaCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
 	items := make([]protocol.CompletionItem, 0, len(schema.Types)+len(schema.Directives))
-	for name := range schema.Types {
-		kind := protocol.CompletionItemKindStruct
-		items = append(items, protocol.CompletionItem{
-			Label: name,
-			Kind:  &kind,
-		})
-	}
-	for name := range schema.Directives {
-		kind := protocol.CompletionItemKindFunction
+	items = append(items, typeCompletionItems(schema)...)
+	items = append(items, directiveCompletionItems(schema)...)
+	return items
+}
+
+func typeCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
+	items := make([]protocol.CompletionItem, 0, len(schema.Types))
+	for name, def := range schema.Types {
+		kind := completionKindForDefinition(def)
 		items = append(items, protocol.CompletionItem{
 			Label: name,
 			Kind:  &kind,
 		})
 	}
 	return items
+}
+
+func completionKindForDefinition(def *ast.Definition) protocol.CompletionItemKind {
+	if def == nil {
+		return protocol.CompletionItemKindStruct
+	}
+	switch def.Kind {
+	case ast.Object:
+		return protocol.CompletionItemKindClass
+	case ast.Interface:
+		return protocol.CompletionItemKindInterface
+	case ast.Union:
+		return protocol.CompletionItemKindEnum
+	case ast.Enum:
+		return protocol.CompletionItemKindEnum
+	case ast.Scalar:
+		return protocol.CompletionItemKindValue
+	case ast.InputObject:
+		return protocol.CompletionItemKindStruct
+	default:
+		return protocol.CompletionItemKindStruct
+	}
 }
 
 func directiveCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
@@ -101,7 +129,7 @@ func directiveCompletionItems(schema *ast.Schema) []protocol.CompletionItem {
 	return items
 }
 
-func fieldCompletionItems(parent *ast.Definition) []protocol.CompletionItem {
+func fieldCompletionItems(parent *ast.Definition, schema *ast.Schema) []protocol.CompletionItem {
 	if parent == nil {
 		return nil
 	}
@@ -109,11 +137,17 @@ func fieldCompletionItems(parent *ast.Definition) []protocol.CompletionItem {
 	for _, field := range parent.Fields {
 		kind := protocol.CompletionItemKindField
 		detail := field.Type.String()
-		items = append(items, protocol.CompletionItem{
+		item := protocol.CompletionItem{
 			Label:  field.Name,
 			Kind:   &kind,
 			Detail: &detail,
-		})
+		}
+		if insertText, ok := fieldInsertText(field, schema); ok {
+			item.InsertText = &insertText
+			format := protocol.InsertTextFormatSnippet
+			item.InsertTextFormat = &format
+		}
+		items = append(items, item)
 	}
 	return items
 }
@@ -348,4 +382,85 @@ func runeOffsetToByteIndex(text string, offset int) int {
 		count++
 	}
 	return len(text)
+}
+
+func shouldCompleteTypeCondition(text string, offset int) bool {
+	lineText, ok := linePrefixAtOffset(text, offset)
+	if !ok {
+		return false
+	}
+	trim := strings.TrimSpace(lineText)
+	if !strings.Contains(trim, "...") {
+		return false
+	}
+	idx := strings.LastIndex(trim, "...") + 3
+	rest := strings.TrimSpace(trim[idx:])
+	return strings.HasPrefix(rest, "on")
+}
+
+func linePrefixAtOffset(text string, offset int) (string, bool) {
+	line := lineFromOffset(text, offset)
+	if line <= 0 {
+		return "", false
+	}
+	start := lineStartIndex(text, line)
+	byteOffset := runeOffsetToByteIndex(text, offset)
+	if byteOffset < start {
+		byteOffset = start
+	}
+	if byteOffset > len(text) {
+		byteOffset = len(text)
+	}
+	return text[start:byteOffset], true
+}
+
+func lineFromOffset(text string, offset int) int {
+	if offset <= 0 {
+		return 1
+	}
+	byteOffset := runeOffsetToByteIndex(text, offset)
+	line := 1
+	for i := 0; i < len(text) && i < byteOffset; i++ {
+		if text[i] == '\n' {
+			line++
+		}
+	}
+	return line
+}
+
+func fieldInsertText(field *ast.FieldDefinition, schema *ast.Schema) (string, bool) {
+	if field == nil {
+		return "", false
+	}
+
+	argSnippet := fieldArgumentsSnippet(field.Arguments)
+	selectionSnippet := fieldSelectionSnippet(field, schema)
+
+	if argSnippet == "" && selectionSnippet == "" {
+		return "", false
+	}
+
+	return field.Name + argSnippet + selectionSnippet, true
+}
+
+func fieldArgumentsSnippet(args ast.ArgumentDefinitionList) string {
+	if len(args) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(args))
+	for i, arg := range args {
+		parts = append(parts, fmt.Sprintf("%s: ${%d}", arg.Name, i+1))
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
+}
+
+func fieldSelectionSnippet(field *ast.FieldDefinition, schema *ast.Schema) string {
+	if schema == nil || field == nil || field.Type == nil {
+		return ""
+	}
+	def := schema.Types[field.Type.Name()]
+	if def == nil || !def.IsCompositeType() {
+		return ""
+	}
+	return " { $0 }"
 }

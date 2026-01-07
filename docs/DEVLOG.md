@@ -17,7 +17,7 @@
 - Diagnostics: syntax and schema validation errors.
 - Hover: minimal field hover with type info and description.
 - Go-to-definition: fields in queries and type names in schema files.
-- Completion: fields, types, and directives (basic context).
+- Completion: fields, types, and directives with basic context and snippets.
 
 ## Configuration
 - `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.
@@ -46,10 +46,12 @@ Example:
 - Hover support for fields.
 - Go-to-definition for fields and types.
 - Basic completion for fields, types, and directives.
+- Completion snippets for arguments and selection sets.
+- Type condition completion for inline fragments.
 - Schema path configuration via initialization options.
 - Refactor into `internal/ls` package with basic tests.
 
 ## Next Steps
-- Completion context improvements (nested selections, snippets).
+- Completion context improvements (richer filtering, arguments info).
 - Improve schema/query separation and caching.
 - Add config file support (e.g. `graphql-language-server.json`).

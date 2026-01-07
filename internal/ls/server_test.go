@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -242,6 +243,16 @@ func TestCompletionFields(t *testing.T) {
 	if !hasCompletionLabel(items, "user") {
 		t.Fatalf("expected user completion, got %v", completionLabels(items))
 	}
+	item, ok := findCompletionItem(items, "user")
+	if !ok {
+		t.Fatalf("expected user completion, got %v", completionLabels(items))
+	}
+	if item.InsertText == nil || *item.InsertText == "" {
+		t.Fatal("expected snippet insert text")
+	}
+	if item.InsertTextFormat == nil || *item.InsertTextFormat != protocol.InsertTextFormatSnippet {
+		t.Fatal("expected snippet insert text format")
+	}
 }
 
 func TestCompletionDirectives(t *testing.T) {
@@ -278,6 +289,41 @@ func TestCompletionDirectives(t *testing.T) {
 	}
 }
 
+func TestCompletionTypeCondition(t *testing.T) {
+	s := New()
+	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
+	query := "{ ... on }"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type Query { user: User }\n type User { name: String }\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[queryURI] = query
+	s.state.mu.Unlock()
+
+	prefix := "{ ... on "
+	result, err := s.completion(nil, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: queryURI},
+			Position: protocol.Position{
+				Line:      0,
+				Character: protocol.UInteger(utf8.RuneCountInString(prefix)),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("completion error: %v", err)
+	}
+	items, ok := result.([]protocol.CompletionItem)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected completion items, got %T", result)
+	}
+	if !hasCompletionLabel(items, "User") {
+		t.Fatalf("expected User completion, got %v", completionLabels(items))
+	}
+}
+
 func TestShutdownAndSetTrace(t *testing.T) {
 	s := New()
 	if err := s.setTrace(nil, &protocol.SetTraceParams{Value: protocol.TraceValueVerbose}); err != nil {
@@ -303,4 +349,13 @@ func completionLabels(items []protocol.CompletionItem) string {
 		labels = append(labels, item.Label)
 	}
 	return strings.Join(labels, ", ")
+}
+
+func findCompletionItem(items []protocol.CompletionItem, label string) (protocol.CompletionItem, bool) {
+	for _, item := range items {
+		if item.Label == label {
+			return item, true
+		}
+	}
+	return protocol.CompletionItem{}, false
 }
