@@ -1,16 +1,40 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/skaji/graphql-language-server/internal/ls"
 )
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+	level := slog.LevelInfo
+	if strings.TrimSpace(os.Getenv("DEBUG")) != "" {
+		level = slog.LevelDebug
+	}
+
+	output := os.Stderr
+	if logPath := strings.TrimSpace(os.Getenv("LOG_FILE")); logPath != "" {
+		file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to open LOG_FILE %q: %v\n", logPath, err)
+		} else {
+			output = file
+			defer func() {
+				if err := file.Close(); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to close LOG_FILE %q: %v\n", logPath, err)
+				}
+			}()
+		}
+	}
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(output, &slog.HandlerOptions{
+		Level: level,
 	})))
+
+	slog.Debug("debug logging enabled")
 
 	server := ls.New()
 	if err := server.RunStdio(); err != nil {
