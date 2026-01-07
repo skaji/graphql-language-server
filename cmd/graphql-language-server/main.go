@@ -13,6 +13,11 @@ import (
 var version = "dev"
 
 func main() {
+	if hasVersionFlag(os.Args[1:]) {
+		fmt.Println(version)
+		return
+	}
+
 	level := slog.LevelInfo
 	if strings.TrimSpace(os.Getenv("DEBUG")) != "" {
 		level = slog.LevelDebug
@@ -58,4 +63,14 @@ func main() {
 	if err := server.RunStdio(); err != nil {
 		slog.Error("server failed", "error", err)
 	}
+}
+
+func hasVersionFlag(args []string) bool {
+	for _, arg := range args {
+		switch arg {
+		case "--version":
+			return true
+		}
+	}
+	return false
 }
