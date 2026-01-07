@@ -5,9 +5,9 @@ GraphQL language server for Go projects, built on `github.com/tliron/glsp` and `
 ## Features
 - Diagnostics: syntax and schema validation errors
 - Hover: field type info
-- Go-to-definition: fields and types
-- Completion: fields, types, directives
-- Schema discovery with configurable paths
+- Go-to-definition: fields, types, and schema type references
+- Completion: fields, types, directives, and schema type positions
+- Schema discovery with configurable paths (defaults to all `.graphql`/`.graphqls`)
 
 ## Install
 ```bash
@@ -21,6 +21,7 @@ The server speaks LSP over stdio. Most editors can launch it directly.
 You can provide schema paths via `initializationOptions.schemaPaths`.
 
 Patterns may be files, directories, or globs. Relative paths are resolved from the workspace root.
+If omitted, the server scans all `.graphql` and `.graphqls` files under the workspace root.
 
 Example:
 ```json
