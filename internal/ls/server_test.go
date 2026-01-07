@@ -533,6 +533,40 @@ func TestCompletionTypeCondition(t *testing.T) {
 	}
 }
 
+func TestCompletionSchemaTypeReference(t *testing.T) {
+	s := New()
+	schemaURI := protocol.DocumentUri("file:///tmp/schema.graphql")
+	schemaText := "type A {\n  foo: \n}\n"
+	schema := gqlparser.MustLoadSchema(&ast.Source{
+		Input: "type A { foo: String }\n type Foo { a: Int }\n",
+	})
+
+	s.state.mu.Lock()
+	s.state.schema = schema
+	s.state.docs[schemaURI] = schemaText
+	s.state.mu.Unlock()
+
+	result, err := s.completion(nil, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: schemaURI},
+			Position: protocol.Position{
+				Line:      1,
+				Character: 7,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("completion error: %v", err)
+	}
+	items, ok := result.([]protocol.CompletionItem)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected completion items, got %T", result)
+	}
+	if !hasCompletionLabel(items, "String") || !hasCompletionLabel(items, "Foo") {
+		t.Fatalf("expected type completions, got %v", completionLabels(items))
+	}
+}
+
 func TestShutdownAndSetTrace(t *testing.T) {
 	s := New()
 	if err := s.setTrace(nil, &protocol.SetTraceParams{Value: protocol.TraceValueVerbose}); err != nil {

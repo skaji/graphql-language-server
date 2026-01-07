@@ -32,6 +32,11 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 
 	offset, _, _ := PositionToRuneOffset(text, params.Position)
 	if isSchemaURI(uri) {
+		if shouldCompleteSchemaTypes(text, offset) {
+			items := typeCompletionItems(schema)
+			slog.Debug("completion: schema type items", "uri", uri, "count", len(items))
+			return items, nil
+		}
 		items := schemaCompletionItems(schema)
 		slog.Debug("completion: schema items", "uri", uri, "count", len(items))
 		return items, nil
@@ -418,6 +423,17 @@ func shouldCompleteTypeCondition(text string, offset int) bool {
 	idx := strings.LastIndex(trim, "...") + 3
 	rest := strings.TrimSpace(trim[idx:])
 	return strings.HasPrefix(rest, "on")
+}
+
+func shouldCompleteSchemaTypes(text string, offset int) bool {
+	linePrefix, ok := linePrefixAtOffset(text, offset)
+	if !ok {
+		return false
+	}
+	if strings.Contains(linePrefix, "\"") {
+		return false
+	}
+	return strings.Contains(linePrefix, ":")
 }
 
 func linePrefixAtOffset(text string, offset int) (string, bool) {
