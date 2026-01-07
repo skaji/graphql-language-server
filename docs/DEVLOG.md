@@ -11,6 +11,7 @@
 - Debug logs are enabled when `DEBUG` is set; `LOG_FILE` redirects logs to a file.
 - Additional debug logs exist for LSP lifecycle, diagnostics, hover, definition, and completion.
 - Logs include source file/line (basename only) and process ID.
+- Schema load debug logs include all type names.
 - `make build`, `make test`, and `make lint` should pass after each milestone.
 - Schema loading supports automatic discovery and configurable paths.
   - Default discovery scans all `*.graphql` and `*.graphqls` under the workspace.

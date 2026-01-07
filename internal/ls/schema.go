@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/tliron/glsp"
@@ -72,6 +73,9 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 	s.state.schemaDiagnostics = diagnosticsByURI
 	s.state.mu.Unlock()
 	slog.Debug("schema load complete", "sources", len(sources), "diagnostics", len(diagnosticsByURI))
+	if schema != nil {
+		slog.Debug("schema types", "types", schemaTypeNames(schema))
+	}
 
 	s.publishAllDiagnostics(context)
 }
@@ -252,6 +256,18 @@ func tooLargeDir(path string) bool {
 		return false
 	}
 	return len(entries) > maxDirEntries
+}
+
+func schemaTypeNames(schema *ast.Schema) []string {
+	if schema == nil {
+		return nil
+	}
+	names := make([]string, 0, len(schema.Types))
+	for name := range schema.Types {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func (s *Server) publishAllDiagnostics(context *glsp.Context) {
