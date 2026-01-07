@@ -48,10 +48,11 @@ Example:
 - Basic completion for fields, types, and directives.
 - Completion snippets for arguments and selection sets.
 - Type condition completion for inline fragments.
+- Completion docs include field signatures; filtering includes argument names.
 - Schema path configuration via initialization options.
 - Refactor into `internal/ls` package with basic tests.
 
 ## Next Steps
-- Completion context improvements (richer filtering, arguments info).
+- Completion context improvements (nested selection accuracy, argument snippets).
 - Improve schema/query separation and caching.
 - Add config file support (e.g. `graphql-language-server.json`).

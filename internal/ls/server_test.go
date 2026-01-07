@@ -216,7 +216,7 @@ func TestCompletionFields(t *testing.T) {
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")
 	query := "{ user { name } }"
 	schema := gqlparser.MustLoadSchema(&ast.Source{
-		Input: "type Query { user: User }\n type User { name: String }\n",
+		Input: "type Query { user(id: ID): User }\n type User { name: String }\n",
 	})
 
 	s.state.mu.Lock()
@@ -252,6 +252,10 @@ func TestCompletionFields(t *testing.T) {
 	}
 	if item.InsertTextFormat == nil || *item.InsertTextFormat != protocol.InsertTextFormatSnippet {
 		t.Fatal("expected snippet insert text format")
+	}
+	doc, ok := item.Documentation.(protocol.MarkupContent)
+	if !ok || !strings.Contains(doc.Value, "user(id: ID): User") {
+		t.Fatalf("expected documentation signature, got %#v", item.Documentation)
 	}
 }
 

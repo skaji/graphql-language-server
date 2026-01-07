@@ -137,10 +137,20 @@ func fieldCompletionItems(parent *ast.Definition, schema *ast.Schema) []protocol
 	for _, field := range parent.Fields {
 		kind := protocol.CompletionItemKindField
 		detail := field.Type.String()
+		filterText := completionFilterText(field.Name, field.Arguments)
+		sortText := strings.ToLower(field.Name)
 		item := protocol.CompletionItem{
-			Label:  field.Name,
-			Kind:   &kind,
-			Detail: &detail,
+			Label:      field.Name,
+			Kind:       &kind,
+			Detail:     &detail,
+			FilterText: &filterText,
+			SortText:   &sortText,
+		}
+		if doc := completionDocumentation(field); doc != "" {
+			item.Documentation = protocol.MarkupContent{
+				Kind:  protocol.MarkupKindMarkdown,
+				Value: doc,
+			}
 		}
 		if insertText, ok := fieldInsertText(field, schema); ok {
 			item.InsertText = &insertText
@@ -463,4 +473,49 @@ func fieldSelectionSnippet(field *ast.FieldDefinition, schema *ast.Schema) strin
 		return ""
 	}
 	return " { $0 }"
+}
+
+func completionFilterText(name string, args ast.ArgumentDefinitionList) string {
+	if len(args) == 0 {
+		return name
+	}
+	argNames := make([]string, 0, len(args))
+	for _, arg := range args {
+		argNames = append(argNames, arg.Name)
+	}
+	return name + " " + strings.Join(argNames, " ")
+}
+
+func completionDocumentation(field *ast.FieldDefinition) string {
+	if field == nil {
+		return ""
+	}
+	signature := fieldSignature(field)
+	if field.Description == "" {
+		return "```graphql\n" + signature + "\n```"
+	}
+	return "```graphql\n" + signature + "\n```\n\n" + field.Description
+}
+
+func fieldSignature(field *ast.FieldDefinition) string {
+	if field == nil || field.Type == nil {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(field.Name)
+	if len(field.Arguments) > 0 {
+		b.WriteByte('(')
+		for i, arg := range field.Arguments {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(arg.Name)
+			b.WriteString(": ")
+			b.WriteString(arg.Type.String())
+		}
+		b.WriteByte(')')
+	}
+	b.WriteString(": ")
+	b.WriteString(field.Type.String())
+	return b.String()
 }
