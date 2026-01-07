@@ -61,6 +61,15 @@ func (s *Server) loadWorkspaceSchema(context *glsp.Context) {
 	diagnosticsByURI := make(map[protocol.DocumentUri][]protocol.Diagnostic)
 	var schema *ast.Schema
 	if len(sources) > 0 {
+		if _, err := parser.ParseSchemas(sources...); err != nil {
+			slog.Debug("schema parse error; skipping validation", "error", err)
+			diagnosticsByURI = GqlErrorDiagnosticsByFile(err, uris)
+			s.state.mu.Lock()
+			s.state.schemaDiagnostics = diagnosticsByURI
+			s.state.mu.Unlock()
+			s.publishAllDiagnostics(context)
+			return
+		}
 		loadedSchema, err := gqlparser.LoadSchema(sources...)
 		schema = loadedSchema
 		if err != nil {
