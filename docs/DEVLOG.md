@@ -1,0 +1,52 @@
+# DEVLOG
+
+## Purpose
+- Build a GraphQL language server in Go.
+- Use `github.com/vektah/gqlparser/v2` for parsing and validation.
+- Grow features incrementally.
+
+## Development Notes
+- LSP is implemented with `github.com/tliron/glsp` (LSP 3.16).
+- Logging uses Go's standard `log/slog`.
+- `make build`, `make test`, and `make lint` should pass after each milestone.
+- Schema loading supports automatic discovery and configurable paths.
+
+## Current Capabilities
+- LSP lifecycle: `initialize`, `shutdown`, `setTrace`.
+- Text sync: `didOpen`, `didChange`, `didClose`.
+- Diagnostics: syntax and schema validation errors.
+- Hover: minimal field hover with type info and description.
+
+## Configuration
+- `initializationOptions.schemaPaths` accepts file paths, directories, or glob patterns.
+- If `schemaPaths` is empty, the server scans `.graphqls` and `*schema*.graphql`.
+
+Example:
+```json
+{
+  "initializationOptions": {
+    "schemaPaths": [
+      "schema/**/*.graphqls",
+      "graphql/schema",
+      "schemas/*.graphql"
+    ]
+  }
+}
+```
+
+## Structure
+- `cmd/graphql-language-server/main.go`: entry point.
+- `internal/ls/`: LSP implementation and helpers.
+
+## Milestones Completed
+- Minimal LSP server with diagnostics.
+- Workspace schema loading and validation diagnostics.
+- Hover support for fields.
+- Schema path configuration via initialization options.
+- Refactor into `internal/ls` package with basic tests.
+
+## Next Steps
+- Go-to-definition for types and fields.
+- Completion for fields, types, and directives.
+- Improve schema/query separation and caching.
+- Add config file support (e.g. `graphql-language-server.json`).
