@@ -49,6 +49,7 @@ Example:
 - Completion snippets for arguments and selection sets.
 - Type condition completion for inline fragments.
 - Completion docs include field signatures; filtering includes argument names.
+- Public README with usage and Vim configuration.
 - Schema path configuration via initialization options.
 - Refactor into `internal/ls` package with basic tests.
 
