@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -47,6 +48,29 @@ func TestInitializeSetsStateAndCapabilities(t *testing.T) {
 	}
 	if len(gotPaths) != 1 || gotPaths[0] != "schema/**/*.graphqls" {
 		t.Fatalf("unexpected schema paths: %v", gotPaths)
+	}
+}
+
+func TestSchemaDiscoveryIncludesGraphQLFiles(t *testing.T) {
+	s := New()
+	root := t.TempDir()
+	schemaPath := filepath.Join(root, "schema.graphql")
+	opsPath := filepath.Join(root, "query.graphql")
+	if err := os.WriteFile(schemaPath, []byte("type Query { name: String }"), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+	if err := os.WriteFile(opsPath, []byte("{ name }"), 0o644); err != nil {
+		t.Fatalf("write query: %v", err)
+	}
+
+	s.state.mu.Lock()
+	s.state.rootPath = root
+	s.state.schemaPaths = nil
+	s.state.mu.Unlock()
+
+	sources, _ := s.collectSchemaSources()
+	if len(sources) == 0 {
+		t.Fatal("expected schema sources")
 	}
 }
 

@@ -1,6 +1,7 @@
 package ls
 
 import (
+	"errors"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -13,6 +14,22 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 )
+
+const (
+	maxSchemaFiles = 2000
+	maxScanDepth   = 8
+	maxDirEntries  = 5000
+)
+
+var errStopScan = errors.New("stop schema scan")
+
+type scanStats struct {
+	fileCount int
+}
+
+func newScanStats() *scanStats {
+	return &scanStats{}
+}
 
 func (s *Server) publishQueryDiagnostics(context *glsp.Context, uri protocol.DocumentUri, text string) {
 	if isSchemaURI(uri) {
@@ -77,24 +94,39 @@ func (s *Server) collectSchemaSources() ([]*ast.Source, map[protocol.DocumentUri
 
 	uris := make(map[protocol.DocumentUri]struct{})
 	var sources []*ast.Source
-	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	stats := newScanStats()
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if entry.IsDir() {
 			name := entry.Name()
-			if strings.HasPrefix(name, ".") || name == "node_modules" {
+			if shouldSkipDir(name) {
+				return filepath.SkipDir
+			}
+			if root != "" && exceedsMaxDepth(root, path) {
+				return filepath.SkipDir
+			}
+			if tooLargeDir(path) {
+				slog.Debug("schema scan: skipping large directory", "path", path)
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !isSchemaPath(path) {
+		if !isGraphQLFile(path) {
 			return nil
 		}
 
 		addSchemaSource(s.state, path, uris, &sources)
+		stats.fileCount++
+		if stats.fileCount >= maxSchemaFiles {
+			return errStopScan
+		}
 		return nil
 	})
+	if errors.Is(err, errStopScan) {
+		slog.Debug("schema scan stopped", "files", stats.fileCount)
+	}
 
 	return sources, uris
 }
@@ -103,6 +135,7 @@ func collectSchemaSourcesFromPaths(state *State, root string, schemaPaths []stri
 	uris := make(map[protocol.DocumentUri]struct{})
 	var sources []*ast.Source
 	visited := make(map[string]struct{})
+	stats := newScanStats()
 
 	for _, pattern := range schemaPaths {
 		for _, path := range expandSchemaPattern(root, pattern) {
@@ -119,28 +152,40 @@ func collectSchemaSourcesFromPaths(state *State, root string, schemaPaths []stri
 				continue
 			}
 			if info.IsDir() {
-				sources = append(sources, collectSchemaSourcesFromDir(state, path, uris)...)
+				sources = append(sources, collectSchemaSourcesFromDir(state, path, uris, stats)...)
 				continue
 			}
 			if !isGraphQLFile(path) {
 				continue
 			}
 			addSchemaSource(state, path, uris, &sources)
+			stats.fileCount++
+			if stats.fileCount >= maxSchemaFiles {
+				slog.Debug("schema scan stopped", "files", stats.fileCount)
+				return sources, uris
+			}
 		}
 	}
 
 	return sources, uris
 }
 
-func collectSchemaSourcesFromDir(state *State, root string, uris map[protocol.DocumentUri]struct{}) []*ast.Source {
+func collectSchemaSourcesFromDir(state *State, root string, uris map[protocol.DocumentUri]struct{}, stats *scanStats) []*ast.Source {
 	var sources []*ast.Source
-	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if entry.IsDir() {
 			name := entry.Name()
-			if strings.HasPrefix(name, ".") || name == "node_modules" {
+			if shouldSkipDir(name) {
+				return filepath.SkipDir
+			}
+			if root != "" && exceedsMaxDepth(root, path) {
+				return filepath.SkipDir
+			}
+			if tooLargeDir(path) {
+				slog.Debug("schema scan: skipping large directory", "path", path)
 				return filepath.SkipDir
 			}
 			return nil
@@ -149,8 +194,15 @@ func collectSchemaSourcesFromDir(state *State, root string, uris map[protocol.Do
 			return nil
 		}
 		addSchemaSource(state, path, uris, &sources)
+		stats.fileCount++
+		if stats.fileCount >= maxSchemaFiles {
+			return errStopScan
+		}
 		return nil
 	})
+	if errors.Is(err, errStopScan) {
+		slog.Debug("schema scan stopped", "files", stats.fileCount)
+	}
 	return sources
 }
 
@@ -168,6 +220,38 @@ func addSchemaSource(state *State, path string, uris map[protocol.DocumentUri]st
 		Name:  string(uri),
 		Input: content,
 	})
+}
+
+func shouldSkipDir(name string) bool {
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+	switch name {
+	case "node_modules", "vendor", "dist", "build":
+		return true
+	default:
+		return false
+	}
+}
+
+func exceedsMaxDepth(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return false
+	}
+	depth := strings.Count(rel, string(os.PathSeparator)) + 1
+	return depth > maxScanDepth
+}
+
+func tooLargeDir(path string) bool {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false
+	}
+	return len(entries) > maxDirEntries
 }
 
 func (s *Server) publishAllDiagnostics(context *glsp.Context) {
