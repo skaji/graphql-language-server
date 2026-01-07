@@ -22,7 +22,7 @@ import (
 var serverName = "graphql-language-server"
 
 var (
-	version string = "0.0.1"
+	version = "0.0.1"
 	handler protocol.Handler
 	state   = newServerState()
 )
@@ -64,7 +64,7 @@ func main() {
 	}
 }
 
-func initialize(context *glsp.Context, params *protocol.InitializeParams) (any, error) {
+func initialize(_ *glsp.Context, params *protocol.InitializeParams) (any, error) {
 	capabilities := handler.CreateServerCapabilities()
 	syncKind := protocol.TextDocumentSyncKindFull
 	capabilities.TextDocumentSync = &protocol.TextDocumentSyncOptions{
@@ -91,12 +91,12 @@ func initialize(context *glsp.Context, params *protocol.InitializeParams) (any, 
 	}, nil
 }
 
-func shutdown(context *glsp.Context) error {
+func shutdown(_ *glsp.Context) error {
 	protocol.SetTraceValue(protocol.TraceValueOff)
 	return nil
 }
 
-func setTrace(context *glsp.Context, params *protocol.SetTraceParams) error {
+func setTrace(_ *glsp.Context, params *protocol.SetTraceParams) error {
 	protocol.SetTraceValue(params.Value)
 	return nil
 }
