@@ -739,6 +739,60 @@ func TestDefinitionHandlerSchemaReference(t *testing.T) {
 	}
 }
 
+func TestRenameSchemaType(t *testing.T) {
+	s := New()
+	root := t.TempDir()
+	file1 := filepath.Join(root, "schema.graphql")
+	file2 := filepath.Join(root, "more.graphql")
+	text1 := "type Foo {\n  id: ID\n}\n"
+	text2 := "type Query {\n  foo: Foo\n}\n"
+	if err := os.WriteFile(file1, []byte(text1), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+	if err := os.WriteFile(file2, []byte(text2), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	s.state.mu.Lock()
+	s.state.rootPath = root
+	s.state.schemaPaths = nil
+	s.state.mu.Unlock()
+
+	ctx := &glsp.Context{
+		Notify: func(_ string, _ any) {},
+	}
+	s.loadWorkspaceSchema(ctx)
+
+	uri := pathToURI(file1)
+	edit, err := s.rename(nil, &protocol.RenameParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position: protocol.Position{
+				Line:      0,
+				Character: 5,
+			},
+		},
+		NewName: "Bar",
+	})
+	if err != nil {
+		t.Fatalf("rename error: %v", err)
+	}
+	if edit == nil || edit.Changes == nil {
+		t.Fatalf("expected workspace edit, got %#v", edit)
+	}
+	changes := edit.Changes
+	if len(changes) < 2 {
+		t.Fatalf("expected edits in multiple files, got %#v", changes)
+	}
+	if edits, ok := changes[uri]; !ok || len(edits) == 0 || edits[0].NewText != "Bar" {
+		t.Fatalf("expected rename in %s, got %#v", uri, edits)
+	}
+	otherURI := pathToURI(file2)
+	if edits, ok := changes[otherURI]; !ok || len(edits) == 0 || edits[0].NewText != "Bar" {
+		t.Fatalf("expected rename in %s, got %#v", otherURI, edits)
+	}
+}
+
 func TestCompletionFields(t *testing.T) {
 	s := New()
 	queryURI := protocol.DocumentUri("file:///tmp/query.graphql")

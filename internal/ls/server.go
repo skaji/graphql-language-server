@@ -33,6 +33,7 @@ func New() *Server {
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
 		TextDocumentReferences: s.references,
+		TextDocumentRename:     s.rename,
 		TextDocumentCompletion: s.completion,
 	}
 	return s
