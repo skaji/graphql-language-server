@@ -8,7 +8,7 @@
 
 ## Development Notes
 
-- LSP is implemented with `github.com/tliron/glsp` (LSP 3.16).
+- LSP is implemented with `github.com/skaji/glsp` (LSP 3.16).
 - Logging uses Go's standard `log/slog`.
 - Debug logs are enabled when `DEBUG` is set; `LOG_FILE` redirects logs to a file.
 - Additional debug logs exist for LSP lifecycle, diagnostics, hover, definition, and completion.
@@ -40,6 +40,7 @@
 - References: schema type references across schema sources.
 - GitHub Actions: build/test/lint workflow (golangci-lint action).
 - Schema file detection uses loaded schema sources, not just file naming.
+- CLI: `--version` and `--help` flags.
 - Go-to-definition: fields in queries and type names in schema files.
 - Go-to-definition: schema type references within SDL.
 - Completion: fields, types, and directives with basic context and snippets.

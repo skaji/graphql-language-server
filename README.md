@@ -1,6 +1,6 @@
 # graphql-language-server
 
-GraphQL language server implemented in Go, built on `github.com/tliron/glsp` and `github.com/vektah/gqlparser/v2`.
+GraphQL language server implemented in Go.
 
 Developed with Codex.
 
@@ -9,6 +9,7 @@ Developed with Codex.
 - Diagnostics: syntax and schema validation errors
 - Hover: field type info
 - Go-to-definition: fields, types, and schema type references
+- References: schema type references
 - Completion: fields, types, directives, and schema type positions
 - Schema discovery with configurable paths (defaults to all `.graphql`/`.graphqls`)
 
